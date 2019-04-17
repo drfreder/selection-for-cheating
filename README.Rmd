@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Fitness conflict or fitness alignment?
 
-This repository re-analyzes the data in Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL. 2019. Interspecific conflict and the evolution of ineffective rhizobia. Ecology Letters,  https://doi.org/10.1111/ele.13247
+This repository re-analyzes the data in: Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Interspecific conflict and the evolution of ineffective rhizobia. Ecology Letters. https://doi.org/10.1111/ele.13247
 
 First we need to load some nifty R packages.
 
@@ -26,12 +26,17 @@ library(car)
 library(glmm)
 library(nlme)
 library(lme4)
+library(readxl)
 
 ```
 
-Download the data from Dryad.
+I downloaded the data from Dryad on April 16, 2019. The citation for the data package is:
+
+Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Data from: Interspecific conflict and the evolution of ineffective rhizobia. Dryad Digital Repository. https://doi.org/10.5061/dryad.cr65269
 
 ```{r Download data}
+
+data <- read_csv("Table_S4.csv")
 
 ```
 
