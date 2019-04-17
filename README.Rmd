@@ -17,6 +17,8 @@ This repository re-analyzes the data in: Gano-Cohen KA, Wendlandt CE, Stokes PJ,
 
 First we need to load some nifty R packages.
 
+Quick test.
+
 ```{r Load packages}
 
 #Load useful packages
