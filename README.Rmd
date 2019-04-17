@@ -26,7 +26,7 @@ library(car)
 library(glmm)
 library(nlme)
 library(lme4)
-library(readxl)
+library(emmeans)
 
 ```
 
@@ -40,3 +40,363 @@ data <- read_csv("Table_S4.csv")
 
 ```
 
+The paper has several measures of plant and rhizobium fitness. First, we need to calculate the appropriate strain means (i.e., breeding values) for each variable. I have tried to stick as close as possible to the analysis presented in the paper, which states that "all effects were coded as fixed except block, which was treated as a random effect" and that variables were log-transformed to improve normality. I calculated breeding values on sympatric and universal hosts, again following the paper's general modelling approach.
+
+```{r Genetic values}
+
+#Exclude control, uninoculated plants
+
+data <- subset(data, Strain != "control")
+
+#Exclude plants that did not form nodules
+
+data <- subset(data, `Total nodules` > 0)
+
+#Make sure factors are factors and numbers are numbers
+
+data$Strain <- as.factor(data$Strain)
+data$`Host Line` <- as.factor(data$`Host Line`)
+data$Population <- as.factor(data$Population)
+data$`Total nodules` <- as.numeric(data$`Total nodules`)
+data$`Mean individual  nodule biomass (mg)` <- as.numeric(data$`Mean individual  nodule biomass (mg)`)
+data$`Shoots mass (g)` <- as.numeric(data$`Shoots mass (g)`)
+data$`Roots mass (g)` <- as.numeric(data$`Roots mass (g)`)
+data$`Relative Growth` <- as.numeric(data$`Relative Growth`)
+
+#Log transform as needed, as per paper
+
+data$log_nodules <- log(data$`Total nodules`)
+data$log_mean_nod_biomass <- log(data$`Mean individual  nodule biomass (mg)`)
+
+#Combine shoot and root mass into one measure of plant biomass
+data$plant_biomass <- data$`Shoots mass (g)` + data$`Roots mass (g)`
+
+#Divide into sympatric and universal hosts, as per paper
+
+data_sym <- subset(data, `Host Line` != "A. heermannii" & `Host Line` != "UnH: Cla12.04" & `Host Line` != "UnL: Anz13.04")
+data_uni <- subset(data, `Host Line` == "A. heermannii" | `Host Line` == "UnH: Cla12.04" | `Host Line` == "UnL: Anz13.04")
+
+#Model total nodules
+lmm1 <- lmer(log_nodules~Population + Strain + `Host Line` + (1|Block), data=data_sym) 
+plot(lmm1)
+summary(lmm1)
+Anova(lmm1, type=3)
+
+#Extract line means and save them to new dataframe
+
+df.means <- as.data.frame(emmeans(lmm1, "Strain"))
+colnames(df.means) <- c("Strain", "Population", "tot_nod_lsmean", "tot_nod_SE", "tot_nod_df", "tot_nod_lowCL", "tot_nod_highCL")
+
+#Mean nodule mass
+lmm2 <- lmer(log_mean_nod_biomass~Population + Strain + `Host Line` + (1|Block), data=data_sym)
+plot(lmm2)
+summary(lmm2)
+Anova(lmm2, type=3)
+
+#Extract line means and add them to the dataframe
+
+tmp <- as.data.frame(emmeans(lmm2, "Strain"))
+colnames(tmp) <- c("Strain", "Population", "nod_mass_lsmean", "nod_mass_SE", "nod_mass_df", "nod_mass_lowCL", "nod_mass_highCL")
+df.means <- cbind(df.means, tmp[,3:7])
+
+#Plant biomass
+
+lmm3 <- lmer(plant_biomass~Population + Strain  + `Host Line` + (1|Block), data=data_sym)
+plot(lmm3)
+summary(lmm3)
+Anova(lmm3, type=3)
+
+#Extract line means and add them to the dataframe
+
+tmp <- as.data.frame(emmeans(lmm3, "Strain"))
+colnames(tmp) <- c("Strain", "Population", "plant_biomass_lsmean", "plant_biomass_SE", "plant_biomass_df", "plant_biomass_lowCL", "plant_biomass_highCL")
+df.means <- cbind(df.means, tmp[,3:7])
+
+#Relative growth rate, as per paper
+#The paper says they took the log of relative growth rate, but there are negative numbers, hmmm...
+
+hist(data_sym$`Relative Growth`) 
+
+lmm4 <- lmer(log(`Relative Growth`)~Population + Strain  + `Host Line` + (1|Block), data=data_sym)
+plot(lmm4)
+summary(lmm4)
+Anova(lmm4, type=3)
+
+#Extract line means and add them to the dataframe
+
+tmp <- as.data.frame(emmeans(lmm4, "Strain"))
+colnames(tmp) <- c("Strain", "Population", "RGR_lsmean", "RGR_SE", "RGR_df", "RGR_lowCL", "RGR_highCL")
+df.means <- cbind(df.means, tmp[,3:7])
+
+#Add CHR and SI values for each isolate; they are identical for each isolate, so no need to model them
+
+tmp <- data_sym %>% group_by(Strain) %>% summarize(CHR = mean(`CHR local abundance`), SI = mean(`SI local abunance`))
+df.means <- merge(df.means, tmp, by="Strain")
+
+#I can infer the biomass mass of plants in the controls for each strain just by simple math
+#If RGR is inoculated biomass/control biomass than control biomass is just inoculated biomass/RGR
+df.means$control_biomass <- df.means$plant_biomass_lsmean/df.means$RGR_lsmean
+
+#Standardize trait and fitness values for each population separately
+tmp <- df.means %>% group_by(Population) %>% summarize(
+  pop_mean_tot_nod=mean(tot_nod_lsmean), 
+  pop_sd_tot_nod=sd(tot_nod_lsmean),
+  pop_mean_nod_mass=mean(nod_mass_lsmean),
+  pop_sd_nod_mass=sd(nod_mass_lsmean),
+  pop_mean_CHR=mean(CHR),
+  pop_mean_SI=mean(SI),
+  pop_mean_plant_biomass=mean(plant_biomass_lsmean),
+  pop_sd_plant_biomass=sd(plant_biomass_lsmean),
+  pop_mean_RGR=mean(RGR_lsmean),
+  pop_sd_RGR=mean(RGR_lsmean)
+  )
+
+df.means <- merge(df.means, tmp, by="Population")
+
+#Standardize traits
+df.means$plant_biomass_std <- (df.means$plant_biomass_lsmean - df.means$pop_mean_plant_biomass)/df.means$pop_sd_plant_biomass
+df.means$RGR <- (df.means$RGR_lsmean - df.means$pop_mean_RGR)/df.means$pop_sd_RGR
+
+#Relativize fitness by dividing by the mean fitness
+df.means$tot_nod_std <- df.means$tot_nod_lsmean/df.means$pop_mean_tot_nod
+df.means$nod_mass_std <- df.means$nod_mass_lsmean/df.means$pop_mean_nod_mass
+df.means$CHR_std <- df.means$CHR/df.means$pop_mean_CHR
+df.means$SI_std <- df.means$SI/df.means$pop_mean_SI
+
+#Total nodules and plant biomass
+
+lm1 <- lm(tot_nod_std~plant_biomass_std, data=df.means) #Model
+summary(lm1)
+S1 <- paste0("S = ", round(summary(lm1)$coefficients[2,1], 3))
+pval1 <- round(summary(lm1)$coefficients[2,4],3)
+pval1 <- ifelse(pval1 <= 0.05, paste0("p = ", pval1), "ns")
+S1 <- paste0(S1, ", ", pval1)
+
+p1 <- ggplot(data=df.means, aes(y=tot_nod_std, x=plant_biomass_std, color=Population))+
+      geom_point()+
+      geom_smooth(method="lm", se=FALSE, color=1)+
+      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
+      ylab("Nodule number")+
+      xlab("Plant biomass")+
+      guides(color=FALSE)
+p1
+
+#Nodule mass and plant biomass
+
+lm2 <- lm(nod_mass_std~plant_biomass_std, data=df.means) #Model
+summary(lm2)
+S2 <- paste0("S = ", round(summary(lm2)$coefficients[2,1], 3))
+pval2 <- round(summary(lm2)$coefficients[2,4],3)
+pval2 <- ifelse(pval2 <= 0.05, paste0("p = ", pval2), "ns")
+S2 <- paste0(S2, ", ", pval2)
+
+p2 <- ggplot(data=df.means, aes(y=nod_mass_std, x=plant_biomass_std, color=Population))+
+      geom_point()+
+      geom_smooth(method="lm", se=FALSE, color=1)+
+      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
+      ylab("Nodule mass")+
+      xlab("Plant biomass")+
+      guides(color=FALSE)
+p2
+
+#CHR and plant biomass
+
+lm3 <- lm(CHR_std~plant_biomass_std, data=df.means) #Model
+summary(lm3)
+S3 <- paste0("S = ", round(summary(lm3)$coefficients[2,1], 3))
+pval3 <- round(summary(lm3)$coefficients[2,4],3)
+pval3 <- ifelse(pval3 <= 0.05, paste0("p = ", pval3), "ns")
+S3 <- paste0(S3, ", ", pval3)
+
+p3 <- ggplot(data=df.means, aes(y=CHR_std, x=plant_biomass_std, color=Population))+
+      geom_point()+
+      geom_smooth(method="lm", se=FALSE, color=1)+
+      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
+      ylab("CHR")+
+      xlab("Plant biomass")+
+      guides(color=FALSE)
+p3
+
+#SI and plant biomass
+
+lm4 <- lm(SI_std~plant_biomass_std, data=df.means) #Model
+summary(lm4)
+S4 <- paste0("S = ", round(summary(lm4)$coefficients[2,1], 3))
+p4 <- round(summary(lm4)$coefficients[2,4],3)
+p4 <- ifelse(p4 <= 0.05, paste0("p = ", p4), "ns")
+S4 <- paste0(S4, ", ", p4)
+
+p4 <- ggplot(data=df.means, aes(y=SI_std, x=plant_biomass_std, color=Population))+
+      geom_point()+
+      geom_smooth(method="lm", se=FALSE, color=1)+
+      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
+      ylab("SI")+
+      xlab("Plant biomass")+
+      guides(color=FALSE)
+p4
+
+#Total nodules and RGR
+
+lm5 <- lm(tot_nod_std~RGR, data=df.means) #Model
+summary(lm5)
+S5 <- paste0("S = ", round(summary(lm5)$coefficients[2,1], 3))
+p5 <- round(summary(lm5)$coefficients[2,4],3)
+p5 <- ifelse(p5 <= 0.05, paste0("p = ", p5), "ns")
+S5 <- paste0(S5, ", ", p5)
+
+p5 <- ggplot(data=df.means, aes(y=tot_nod_std, x=RGR, color=Population))+
+      geom_point()+
+      geom_smooth(method="lm", se=FALSE, color=1)+
+      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
+      ylab("Nodule number")+
+      xlab("RGR")+
+      guides(color=FALSE)
+p5
+
+#Nodule mass and RGR
+
+lm6 <- lm(nod_mass_std~RGR, data=df.means) #Model
+summary(lm6)
+S6 <- paste0("S = ", round(summary(lm6)$coefficients[2,1], 3))
+p6 <- round(summary(lm6)$coefficients[2,4],3)
+p6 <- ifelse(p6 <= 0.05, paste0("p = ", p6), "ns")
+S6 <- paste0(S6, ", ", p6)
+
+p6 <- ggplot(data=df.means, aes(y=nod_mass_std, x=RGR, color=Population))+
+      geom_point()+
+      geom_smooth(method="lm", se=FALSE, color=1)+
+      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
+      ylab("Nodule number")+
+      xlab("RGR")+
+      guides(color=FALSE)
+p6
+
+#CHR and RGR
+
+lm7 <- lm(CHR~RGR, data=df.means) #Model
+summary(lm7)
+S7 <- paste0("S = ", round(summary(lm7)$coefficients[2,1], 3))
+p7 <- round(summary(lm7)$coefficients[2,4],3)
+p7 <- ifelse(p7 <= 0.05, paste0("p = ", p7), "ns")
+S7 <- paste0(S7, ", ", p7)
+
+p7 <- ggplot(data=df.means, aes(y=CHR, x=RGR, color=Population))+
+      geom_point()+
+      geom_smooth(method="lm", se=FALSE, color=1)+
+      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
+      ylab("CHR")+
+      xlab("RGR")+
+      guides(color=FALSE)
+p7
+
+#SI and RGR
+
+lm8 <- lm(SI~RGR, data=df.means) #Model
+summary(lm8)
+S8 <- paste0("S = ", round(summary(lm8)$coefficients[2,1], 3))
+p8 <- round(summary(lm8)$coefficients[2,4],3)
+p8 <- ifelse(p8 <= 0.05, paste0("p = ", p8), "ns")
+S8 <- paste0(S8, ", ", p8)
+
+p8 <- ggplot(data=df.means, aes(y=SI, x=RGR, color=Population))+
+      geom_point()+
+      geom_smooth(method="lm", se=FALSE, color=1)+
+      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
+      ylab("SI")+
+      xlab("RGR")+
+      guides(color=FALSE)
+p8
+
+plot_grid(p1,p2,p3,p4,p5,p6,p7,p8, nrow=2, ncol=4, labels=c(S1, S2, S3, S4, S5, S6, S7, S8), hjust=-1)
+
+#Correlations among rhizobium fitness proxies
+lm9 <- lm(SI~CHR, data=df.means) #Model
+summary(lm9)
+p9 <- round(summary(lm9)$coefficients[2,4],3)
+r9 <- 
+label9 <- expression("r"^2*" = ", r9)
+
+
+p9 <- ggplot(data=df.means, aes(y=SI, x=CHR))+
+      geom_point()+
+      geom_smooth(method="lm")+
+      xlab("CHR")+
+      ylab("SI")+
+      geom_text(aes(label=Strain),hjust=0, vjust=0)
+p9
+
+p10 <- ggplot(data=df.means, aes(y=SI, x=nod_mass_lsmean))+
+      geom_point()+
+      geom_smooth(method="lm")+
+      geom_text(aes(label=Strain),hjust=0, vjust=0)
+p10
+
+p9 <- ggplot(data=df.means, aes(y=SI, x=tot_nod_lsmean))+
+      geom_point()+
+      geom_smooth(method="lm")+
+      geom_text(aes(label=Strain),hjust=0, vjust=0)
+p9
+
+
+p10 <- ggplot(data=df.means, aes(y=CHR, x=nod_mass_lsmean))+
+      geom_point()+
+      geom_smooth(method="lm")+
+      geom_text(aes(label=Strain),hjust=0, vjust=0)
+p10
+
+p11 <- ggplot(data=df.means, aes(y=CHR, x=tot_nod_lsmean))+
+      geom_point()+
+      geom_smooth(method="lm")+
+      geom_text(aes(label=Strain),hjust=0, vjust=0)
+p11
+
+#Corrlations among plant fitness proxies
+
+p12 <- ggplot(data=df.means, aes(y=RGR, x=plant_biomass_std))+
+      geom_point()+
+      geom_smooth(method="lm")+
+      geom_text(aes(label=Strain),hjust=0, vjust=0)
+p12
+
+
+
+
+plot_grid(p9, label=p9)
+
+p13 <- ggplot(data=df.means, aes(y=control_biomass, x=plant_biomass_lsmean))+
+      geom_point()+
+      geom_smooth(method="lm")+
+      geom_text(aes(label=Strain),hjust=0, vjust=0)
+p13
+
+p13 <- ggplot(data=df.means, aes(y=control_biomass, x=SI))+
+      geom_point()+
+      geom_smooth(method="lm")+
+      geom_text(aes(label=Strain),hjust=0, vjust=0)
+p13
+
+p13 <- ggplot(data=df.means, aes(y=control_biomass, x=CHR))+
+      geom_point()+
+      geom_smooth(method="lm")+
+      geom_text(aes(label=Strain),hjust=0, vjust=0)
+p13
+
+
+
+lm <- lm(SI~plant_biomass_lsmean, data=df.means)
+summary(lm)
+
+lm <- lm(CHR~plant_biomass_lsmean, data=df.means)
+summary(lm)
+
+lm <- lm(CHR~plant_biomass_lsmean, data=df.means)
+summary(lm)
+
+
+lm <- lm(nod_mass_lsmean~plant_biomass_lsmean, data=df.means)
+summary(lm)
+
+```
+
+
+```
