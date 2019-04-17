@@ -1,0 +1,37 @@
+---
+title: "Much ado about fitness correlations"
+author: "Megan Frederickson"
+date: `r format(Sys.Date())`
+output: github_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Fitness conflict or fitness alignment?
+
+This repository re-analyzes the data in Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL. 2019. Interspecific conflict and the evolution of ineffective rhizobia. Ecology Letters,  https://doi.org/10.1111/ele.13247
+
+First we need to load some nifty R packages.
+
+```{r Load packages}
+
+#Load useful packages
+library(tidyverse) #includes ggplot2, dplyr, readr, stringr
+library(cowplot)
+library(car)
+library(glmm)
+library(nlme)
+library(lme4)
+
+```
+
+Download the data from Dryad.
+
+```{r Download data}
+
+```
+
