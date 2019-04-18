@@ -309,7 +309,7 @@ p8 <- ggplot(data=df.means, aes(y=SI, x=RGR))+
       ylab("SI")+
       xlab("RGR")
 
-plot_grid(p1,p2,p3,p4,p5,p6,p7,p8, nrow=2, ncol=4, labels=c(S1, S2, S3, S4, S5, S6, S7, S8), scale = 0.9)
+plot_grid(p1,p2,p3,p4,p5,p6,p7,p8, nrow=2, ncol=4, labels=c(S1, S2, S3, S4, S5, S6, S7, S8), hjust = -1, scale = 0.9)
 ```
 
 # Why do different fitness measures give different answers?
