@@ -112,7 +112,7 @@ df.means <- cbind(df.means, tmp[,3:7])
 tmp <- data_sym %>% group_by(Strain) %>% summarize(CHR = mean(`CHR local abundance`), SI = mean(`SI local abunance`))
 df.means <- merge(df.means, tmp, by="Strain")
 
-#Standardize trait and fitness values for each population separately
+#Calculate means and SDs for each fitness/trait measure for each population separately
 tmp <- df.means %>% group_by(Population) %>% summarize(
   pop_mean_tot_nod=mean(tot_nod_lsmean), 
   pop_sd_tot_nod=sd(tot_nod_lsmean),
@@ -143,7 +143,7 @@ df.means$RGR_std <- (df.means$RGR_lsmean - df.means$pop_mean_RGR)/df.means$pop_s
 
 Next, I adopt standard genetic selection analyses to estimate selection gradients by regressing relativized fitness against standardized trait values. I estimated eight selection gradients, because there are four fitness measures (nodule number, nodule mass, CHR, and SI) and two traits (plant biomass and RGR) in the paper. 
 
-```{r Estimate selection gradients, message=FALSE, dpi=600, fig.height=6, warning=FALSE}
+```{r Estimate selection gradients, message=FALSE, warning=FALSE}
 
 #Total nodules and plant biomass
 
@@ -281,7 +281,7 @@ p8 <- ggplot(data=df.means, aes(y=SI_std, x=RGR_std))+
 
 After standardizing relative growth within each population and relativizing all four bacterial fitness measures, there is no significant selection on symbiont quality when it is measured as RGR, as in the paper. Dashed lines show non-significant regressions.
 
-```{r Visualize selection gradients, using RGR}
+```{r Visualize selection gradients, using RGR, warning=FALSE, message=FALSE, dpi=600, fig.height=6}
 
 plot_grid(p5,p6,p7,p8, labels=c(S5, S6, S7, S8), hjust = c(-1.7, -1, -1, -1), scale = 0.9)
 
@@ -289,7 +289,7 @@ plot_grid(p5,p6,p7,p8, labels=c(S5, S6, S7, S8), hjust = c(-1.7, -1, -1, -1), sc
 
 # Selection on symbiont quality, measured as plant biomass
 
-Performing the same analysis but measuring symbiont quality using plant biomass, in the more traditional fashion, shows only one statistically significant selection gradient: the regression of nodule number on plant biomass. And the relationship is positive, suggesting fitness alignment, not conflict, between partners.
+Performing the same analysis but measuring symbiont quality using plant biomass, in the more traditional fashion, shows only one statistically significant selection gradient: the regression of nodule number on plant biomass. And the relationship is positive, suggesting fitness alignment, not conflict, between partners. Solid lines show significant selection gradients. Dashed lines show non-signficiant selection gradients. 
 
 ```{r Visualize selection gradients, using plant biomass, message=FALSE, dpi=600, fig.height=6, warning=FALSE}
 
@@ -312,7 +312,6 @@ p9 <- ggplot(data=df.means, aes(y=SI_std, x=CHR_std))+
       xlab("CHR")+
       ylab("SI")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p9
 
 lm10 <- lm(SI_std~nod_mass_std, data=df.means) #Model
 summary(lm10)
@@ -323,7 +322,6 @@ p10 <- ggplot(data=df.means, aes(y=SI_std, x=nod_mass_std))+
       xlab("Nodule mass")+
       ylab("SI")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p10
 
 lm11 <- lm(SI_std~tot_nod_std, data=df.means) #Model
 summary(lm11)
@@ -334,7 +332,6 @@ p11 <- ggplot(data=df.means, aes(y=SI_std, x=tot_nod_std))+
       xlab("Nodule number")+
       ylab("SI")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p11
 
 lm12 <- lm(CHR_std~nod_mass_std, data=df.means) #Model
 summary(lm12)
@@ -345,7 +342,6 @@ p12 <- ggplot(data=df.means, aes(y=CHR_std, x=nod_mass_std))+
       xlab("Nodule mass")+
       ylab("CHR")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p12
 
 lm13 <- lm(CHR_std~tot_nod_std, data=df.means) #Model
 summary(lm13)
@@ -356,7 +352,6 @@ p13 <- ggplot(data=df.means, aes(y=CHR_std, x=tot_nod_std))+
       xlab("Nodule number")+
       ylab("CHR")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p13
 
 lm14 <- lm(tot_nod_std~nod_mass_std, data=df.means) #Model
 summary(lm14)

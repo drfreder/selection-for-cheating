@@ -158,7 +158,7 @@ df.means <- cbind(df.means, tmp[,3:7])
 tmp <- data_sym %>% group_by(Strain) %>% summarize(CHR = mean(`CHR local abundance`), SI = mean(`SI local abunance`))
 df.means <- merge(df.means, tmp, by="Strain")
 
-#Standardize trait and fitness values for each population separately
+#Calculate means and SDs for each fitness/trait measure for each population separately
 tmp <- df.means %>% group_by(Population) %>% summarize(
   pop_mean_tot_nod=mean(tot_nod_lsmean), 
   pop_sd_tot_nod=sd(tot_nod_lsmean),
@@ -509,18 +509,12 @@ After standardizing relative growth within each population and relativizing all 
 plot_grid(p5,p6,p7,p8, labels=c(S5, S6, S7, S8), hjust = c(-1.7, -1, -1, -1), scale = 0.9)
 ```
 
-    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 5 rows containing missing values (geom_point).
-
-    ## Warning: Removed 5 rows containing missing values (geom_text).
-
 ![](README_files/figure-markdown_github/Visualize%20selection%20gradients,%20using%20RGR-1.png)
 
 Selection on symbiont quality, measured as plant biomass
 ========================================================
 
-Performing the same analysis but measuring symbiont quality using plant biomass, in the more traditional fashion, shows only one statistically significant selection gradient: the regression of nodule number on plant biomass. And the relationship is positive, suggesting fitness alignment, not conflict, between partners.
+Performing the same analysis but measuring symbiont quality using plant biomass, in the more traditional fashion, shows only one statistically significant selection gradient: the regression of nodule number on plant biomass. And the relationship is positive, suggesting fitness alignment, not conflict, between partners. Solid lines show significant selection gradients. Dashed lines show non-signficiant selection gradients.
 
 ``` r
 plot_grid(p1,p2,p3,p4, labels=c(S1, S2, S3, S4), hjust = c(-0.8, -1, -1, -1), scale=0.9)
@@ -564,12 +558,7 @@ p9 <- ggplot(data=df.means, aes(y=SI_std, x=CHR_std))+
       xlab("CHR")+
       ylab("SI")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p9
-```
 
-![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-1.png)
-
-``` r
 lm10 <- lm(SI_std~nod_mass_std, data=df.means) #Model
 summary(lm10)
 ```
@@ -601,12 +590,7 @@ p10 <- ggplot(data=df.means, aes(y=SI_std, x=nod_mass_std))+
       xlab("Nodule mass")+
       ylab("SI")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p10
-```
 
-![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-2.png)
-
-``` r
 lm11 <- lm(SI_std~tot_nod_std, data=df.means) #Model
 summary(lm11)
 ```
@@ -636,12 +620,7 @@ p11 <- ggplot(data=df.means, aes(y=SI_std, x=tot_nod_std))+
       xlab("Nodule number")+
       ylab("SI")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p11
-```
 
-![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-3.png)
-
-``` r
 lm12 <- lm(CHR_std~nod_mass_std, data=df.means) #Model
 summary(lm12)
 ```
@@ -670,12 +649,7 @@ p12 <- ggplot(data=df.means, aes(y=CHR_std, x=nod_mass_std))+
       xlab("Nodule mass")+
       ylab("CHR")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p12
-```
 
-![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-4.png)
-
-``` r
 lm13 <- lm(CHR_std~tot_nod_std, data=df.means) #Model
 summary(lm13)
 ```
@@ -704,12 +678,7 @@ p13 <- ggplot(data=df.means, aes(y=CHR_std, x=tot_nod_std))+
       xlab("Nodule number")+
       ylab("CHR")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p13
-```
 
-![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-5.png)
-
-``` r
 lm14 <- lm(tot_nod_std~nod_mass_std, data=df.means) #Model
 summary(lm14)
 ```
@@ -745,7 +714,7 @@ p14 <- ggplot(data=df.means, aes(y=tot_nod_std, x=nod_mass_std))+
 plot_grid(p9, p10, p11, p12, p13, p14)
 ```
 
-![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-6.png)
+![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-1.png)
 
 ``` r
 #Corrlation between plant fitness proxies
@@ -783,4 +752,4 @@ p15 <- ggplot(data=df.means, aes(y=RGR_std, x=plant_biomass_std))+
 p15
 ```
 
-![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-7.png)
+![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-2.png)
