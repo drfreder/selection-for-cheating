@@ -42,23 +42,8 @@ data$Population <- as.factor(data$Population)
 data$`Total nodules` <- as.numeric(data$`Total nodules`)
 data$`Mean individual  nodule biomass (mg)` <- as.numeric(data$`Mean individual  nodule biomass (mg)`)
 data$`Shoots mass (g)` <- as.numeric(data$`Shoots mass (g)`)
-```
-
-    ## Warning: NAs introduced by coercion
-
-``` r
 data$`Roots mass (g)` <- as.numeric(data$`Roots mass (g)`)
-```
-
-    ## Warning: NAs introduced by coercion
-
-``` r
 data$`Relative Growth` <- as.numeric(data$`Relative Growth`)
-```
-
-    ## Warning: NAs introduced by coercion
-
-``` r
 data$Block <- as.factor(data$Block)
 ```
 
@@ -148,15 +133,6 @@ colnames(tmp) <- c("Strain", "Population", "plant_biomass_lsmean", "plant_biomas
 df.means <- cbind(df.means, tmp[,3:7])
 
 lmm4 <- lmer(log(`Relative Growth`)~Population + Strain  + `Host Line` + (1|Block), data=data_sym) #Relative growth rate, log-transformed as per the paper, but note this generates NAs because there are negative values
-```
-
-    ## Warning in log(`Relative Growth`): NaNs produced
-
-    ## Warning in log(`Relative Growth`): NaNs produced
-
-    ## Warning in log(`Relative Growth`): NaNs produced
-
-``` r
 #plot(lmm4)
 #summary(lmm4)
 Anova(lmm4, type=3)
@@ -208,10 +184,10 @@ df.means$plant_biomass_std <- (df.means$plant_biomass_lsmean - df.means$pop_mean
 df.means$RGR_std <- (df.means$RGR_lsmean - df.means$pop_mean_RGR)/df.means$pop_sd_RGR
 ```
 
-Calculate selection gradients
-=============================
+Estimate selection gradients
+============================
 
-Next, I adopt standard genetic selection analyses to estimate selection gradients by regressing relativized fitness against standardized trait values.
+Next, I adopt standard genetic selection analyses to estimate selection gradients by regressing relativized fitness against standardized trait values. I estimated eight selection gradients, because there are four fitness measures (nodule number, nodule mass, CHR, and SI) and two traits (plant biomass and RGR) in the paper.
 
 ``` r
 #Total nodules and plant biomass
@@ -252,7 +228,7 @@ p1 <- ggplot(data=df.means, aes(y=tot_nod_std, x=plant_biomass_std))+
       ylab("Nodule number")+
       xlab("Plant biomass")
 
-ggsave("fitness_correlation.png", p1, dpi=600)
+#ggsave("fitness_correlation.png", p1, dpi=600)
 
 #Nodule mass and plant biomass
 
@@ -290,8 +266,7 @@ p2 <- ggplot(data=df.means, aes(y=nod_mass_std, x=plant_biomass_std))+
       geom_smooth(method="lm", se=FALSE, linetype="dashed")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       ylab("Nodule mass")+
-      xlab("Plant biomass")+
-      guides(color=FALSE)
+      xlab("Plant biomass")
 
 #CHR and plant biomass
 
@@ -523,17 +498,12 @@ p8 <- ggplot(data=df.means, aes(y=SI_std, x=RGR_std))+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       ylab("SI")+
       xlab("RGR")
-
-plot_grid(p1,p2,p3,p4, labels=c(S1, S2, S3, S4), hjust = c(-0.8, -1, -1, -1), scale=0.9)
 ```
 
-    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
+Selection on symbiont quality, measured as RGR
+==============================================
 
-    ## Warning: Removed 5 rows containing missing values (geom_point).
-
-    ## Warning: Removed 5 rows containing missing values (geom_text).
-
-![](README_files/figure-markdown_github/Selection%20gradients-1.png)
+After standardizing relative growth within each population and relativizing all four bacterial fitness measures, there is no significant selection on symbiont quality when it is measured as RGR, as in the paper. Dashed lines show non-significant regressions.
 
 ``` r
 plot_grid(p5,p6,p7,p8, labels=c(S5, S6, S7, S8), hjust = c(-1.7, -1, -1, -1), scale = 0.9)
@@ -545,7 +515,18 @@ plot_grid(p5,p6,p7,p8, labels=c(S5, S6, S7, S8), hjust = c(-1.7, -1, -1, -1), sc
 
     ## Warning: Removed 5 rows containing missing values (geom_text).
 
-![](README_files/figure-markdown_github/Selection%20gradients-2.png)
+![](README_files/figure-markdown_github/Visualize%20selection%20gradients,%20using%20RGR-1.png)
+
+Selection on symbiont quality, measured as plant biomass
+========================================================
+
+Performing the same analysis but measuring symbiont quality using plant biomass, in the more traditional fashion, shows only one statistically significant selection gradient: the regression of nodule number on plant biomass. And the relationship is positive, suggesting fitness alignment, not conflict, between partners.
+
+``` r
+plot_grid(p1,p2,p3,p4, labels=c(S1, S2, S3, S4), hjust = c(-0.8, -1, -1, -1), scale=0.9)
+```
+
+![](README_files/figure-markdown_github/Visualize%20selection%20gradients,%20using%20plant%20biomass-1.png)
 
 Why do different fitness measures give different answers?
 =========================================================
@@ -586,12 +567,6 @@ p9 <- ggplot(data=df.means, aes(y=SI_std, x=CHR_std))+
 p9
 ```
 
-    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 5 rows containing missing values (geom_point).
-
-    ## Warning: Removed 5 rows containing missing values (geom_text).
-
 ![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-1.png)
 
 ``` r
@@ -629,12 +604,6 @@ p10 <- ggplot(data=df.means, aes(y=SI_std, x=nod_mass_std))+
 p10
 ```
 
-    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 5 rows containing missing values (geom_point).
-
-    ## Warning: Removed 5 rows containing missing values (geom_text).
-
 ![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-2.png)
 
 ``` r
@@ -669,12 +638,6 @@ p11 <- ggplot(data=df.means, aes(y=SI_std, x=tot_nod_std))+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
 p11
 ```
-
-    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 5 rows containing missing values (geom_point).
-
-    ## Warning: Removed 5 rows containing missing values (geom_text).
 
 ![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-3.png)
 
@@ -781,24 +744,6 @@ p14 <- ggplot(data=df.means, aes(y=tot_nod_std, x=nod_mass_std))+
 
 plot_grid(p9, p10, p11, p12, p13, p14)
 ```
-
-    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 5 rows containing missing values (geom_point).
-
-    ## Warning: Removed 5 rows containing missing values (geom_text).
-
-    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 5 rows containing missing values (geom_point).
-
-    ## Warning: Removed 5 rows containing missing values (geom_text).
-
-    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 5 rows containing missing values (geom_point).
-
-    ## Warning: Removed 5 rows containing missing values (geom_text).
 
 ![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-6.png)
 
