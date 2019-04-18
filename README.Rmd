@@ -1,5 +1,5 @@
 ---
-title: "Much ado about fitness correlations"
+title: "Are rhizobia under selection to cheat?"
 author: "Megan Frederickson"
 date: "`r format(Sys.Date())`"
 output: github_document
@@ -11,7 +11,13 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Fitness conflict or fitness alignment?
 
-This repository re-analyzes the data in: Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Interspecific conflict and the evolution of ineffective rhizobia. Ecology Letters. https://doi.org/10.1111/ele.13247
+This repository re-analyzes the data in: 
+
+Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Interspecific conflict and the evolution of ineffective rhizobia. Ecology Letters. https://doi.org/10.1111/ele.13247
+
+The authors make the case that in their legume-rhizobium study system, the rhizobia are selected to cheat. In other words, they report a negative correlation between legume and rhizobium fitnesses.
+
+Here, I re-analyze their data using a standard genetic selection analysis approach, in which relativized fitness is regressed against standardized family-mean trait values. 
 
 First we need to load some nifty R packages.
 
@@ -38,11 +44,11 @@ data <- read_csv("Table_S4.csv")
 
 ```
 
-# Calculate genotype (i.e., bacterial strain) means for each plant and rhizobium fitness measure
+# Calculate genotype means
 
-The paper has several measures of plant and rhizobium fitness. First, we need to calculate the appropriate strain means for each variable. I did this using the emmeans package, which calculates estimated marginal means from a linear mixed model. I have tried to stick as close as possible to the analysis presented in the paper, which states that "all effects were coded as fixed except block, which was treated as a random effect" and that variables were log-transformed as needed to improve normality. I also calculated strain means only on data from sympatric hosts, again following the paper's general modelling approach.
+The data set has two measures of plant fitness and four measures of rhizobium fitness. First, we need to calculate the appropriate strain means for each one. I did this using the emmeans package, which calculates estimated marginal means from a linear mixed model. I have tried to stick as close as possible to the analysis presented in the paper, which states that "all effects were coded as fixed except block, which was treated as a random effect" and that variables were log-transformed as needed to improve normality. I also calculated strain means only on data from sympatric hosts, again following the paper's general modelling approach.
 
-```{r Genetic values}
+```{r Genotype means, message=FALSE}
 
 #Exclude control, uninoculated plants
 
@@ -79,8 +85,8 @@ data_uni <- subset(data, `Host Line` == "A. heermannii" | `Host Line` == "UnH: C
 
 #Model total nodules
 lmm1 <- lmer(log_nodules~Population + Strain + `Host Line` + (1|Block), data=data_sym) 
-plot(lmm1)
-summary(lmm1)
+#plot(lmm1)
+#summary(lmm1)
 Anova(lmm1, type=3)
 
 #Extract line means and save them to new dataframe
@@ -90,8 +96,8 @@ colnames(df.means) <- c("Strain", "Population", "tot_nod_lsmean", "tot_nod_SE", 
 
 #Mean nodule mass
 lmm2 <- lmer(log_mean_nod_biomass~Population + Strain + `Host Line` + (1|Block), data=data_sym)
-plot(lmm2)
-summary(lmm2)
+#plot(lmm2)
+#summary(lmm2)
 Anova(lmm2, type=3)
 
 #Extract line means and add them to the dataframe
@@ -103,8 +109,8 @@ df.means <- cbind(df.means, tmp[,3:7])
 #Plant biomass
 
 lmm3 <- lmer(plant_biomass~Population + Strain  + `Host Line` + (1|Block), data=data_sym)
-plot(lmm3)
-summary(lmm3)
+#plot(lmm3)
+#summary(lmm3)
 Anova(lmm3, type=3)
 
 #Extract line means and add them to the dataframe
@@ -116,11 +122,9 @@ df.means <- cbind(df.means, tmp[,3:7])
 #Relative growth rate, as per paper
 #The paper says they took the log of relative growth rate, but there are negative numbers, hmmm...
 
-hist(data_sym$`Relative Growth`) 
-
 lmm4 <- lmer(log(`Relative Growth`)~Population + Strain  + `Host Line` + (1|Block), data=data_sym)
-plot(lmm4)
-summary(lmm4)
+#plot(lmm4)
+#summary(lmm4)
 Anova(lmm4, type=3)
 
 #Extract line means and add them to the dataframe
@@ -129,7 +133,7 @@ tmp <- as.data.frame(emmeans(lmm4, "Strain"))
 colnames(tmp) <- c("Strain", "Population", "RGR_lsmean", "RGR_SE", "RGR_df", "RGR_lowCL", "RGR_highCL")
 df.means <- cbind(df.means, tmp[,3:7])
 
-#Add CHR and SI values for each isolate; they are identical for each isolate, so no need to model them
+#Add CHR and SI values for each isolate; they are identical for all replicates of each isolate, so no need to model them
 
 tmp <- data_sym %>% group_by(Strain) %>% summarize(CHR = mean(`CHR local abundance`), SI = mean(`SI local abunance`))
 df.means <- merge(df.means, tmp, by="Strain")
@@ -151,10 +155,9 @@ tmp <- df.means %>% group_by(Population) %>% summarize(
   pop_mean_RGR=mean(RGR_lsmean),
   pop_sd_RGR=mean(RGR_lsmean)
   )
-
 df.means <- merge(df.means, tmp, by="Population")
 
-#Standardize traits
+#Standardize traits by subtracting the population mean and dividing by the population standard deviation
 df.means$plant_biomass_std <- (df.means$plant_biomass_lsmean - df.means$pop_mean_plant_biomass)/df.means$pop_sd_plant_biomass
 df.means$RGR <- (df.means$RGR_lsmean - df.means$pop_mean_RGR)/df.means$pop_sd_RGR
 
@@ -170,7 +173,7 @@ df.means$nod_mass_std <- df.means$nod_mass_lsmean/df.means$pop_mean_nod_mass
 
 Next, I adopt standard genetic selection analyses to estimate selection gradients, S, by regressing relativized fitness against standardized trait values. 
 
-```{r Selection gradients}
+```{r Selection gradients, message=FALSE, dpi=600, fig.height=8.5}
 
 #Total nodules and plant biomass
 
@@ -188,7 +191,6 @@ p1 <- ggplot(data=df.means, aes(y=tot_nod_std, x=plant_biomass_std))+
       ylab("Nodule number")+
       xlab("Plant biomass")+
       guides(color=FALSE)
-p1
 
 #Nodule mass and plant biomass
 
@@ -206,7 +208,6 @@ p2 <- ggplot(data=df.means, aes(y=nod_mass_std, x=plant_biomass_std))+
       ylab("Nodule mass")+
       xlab("Plant biomass")+
       guides(color=FALSE)
-p2
 
 #CHR and plant biomass
 
@@ -224,7 +225,6 @@ p3 <- ggplot(data=df.means, aes(y=CHR, x=plant_biomass_std))+
       ylab("CHR")+
       xlab("Plant biomass")+
       guides(color=FALSE)
-p3
 
 #SI and plant biomass
 
@@ -242,7 +242,6 @@ p4 <- ggplot(data=df.means, aes(y=SI, x=plant_biomass_std))+
       ylab("SI")+
       xlab("Plant biomass")+
       guides(color=FALSE)
-p4
 
 #Total nodules and RGR
 
@@ -260,7 +259,6 @@ p5 <- ggplot(data=df.means, aes(y=tot_nod_std, x=RGR))+
       ylab("Nodule number")+
       xlab("RGR")+
       guides(color=FALSE)
-p5
 
 #Nodule mass and RGR
 
@@ -278,7 +276,6 @@ p6 <- ggplot(data=df.means, aes(y=nod_mass_std, x=RGR))+
       ylab("Nodule mass")+
       xlab("RGR")+
       guides(color=FALSE)
-p6
 
 #CHR and RGR
 
@@ -295,7 +292,6 @@ p7 <- ggplot(data=df.means, aes(y=CHR, x=RGR))+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       ylab("CHR")+
       xlab("RGR")
-p7
 
 #SI and RGR
 
@@ -312,14 +308,13 @@ p8 <- ggplot(data=df.means, aes(y=SI, x=RGR))+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       ylab("SI")+
       xlab("RGR")
-p8
 
 plot_grid(p1,p2,p3,p4,p5,p6,p7,p8, nrow=2, ncol=4, labels=c(S1, S2, S3, S4, S5, S6, S7, S8), scale = 0.9)
 ```
 
 # Why do different fitness measures give different answers?
 
-```{r Correlations among fitness proxies}
+```{r Correlations among fitness proxies, , message=FALSE, dpi=600, fig.height=8.5}
 
 #Correlations among rhizobium fitness proxies
 lm9 <- lm(SI~CHR, data=df.means) #Model
@@ -331,7 +326,6 @@ p9 <- ggplot(data=df.means, aes(y=SI, x=CHR))+
       xlab("CHR")+
       ylab("SI")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p9
 
 lm10 <- lm(SI~nod_mass_std, data=df.means) #Model
 summary(lm10)
@@ -342,7 +336,6 @@ p10 <- ggplot(data=df.means, aes(y=SI, x=nod_mass_std))+
       xlab("Nodule mass")+
       ylab("SI")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p10
 
 lm11 <- lm(SI~tot_nod_std, data=df.means) #Model
 summary(lm11)
@@ -353,8 +346,6 @@ p11 <- ggplot(data=df.means, aes(y=SI, x=tot_nod_std))+
       xlab("Nodule number")+
       ylab("SI")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p11
-
 
 lm12 <- lm(CHR~nod_mass_std, data=df.means) #Model
 summary(lm12)
@@ -365,7 +356,6 @@ p12 <- ggplot(data=df.means, aes(y=CHR, x=nod_mass_std))+
       xlab("Nodule mass")+
       ylab("CHR")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p12
 
 lm13 <- lm(CHR~tot_nod_std, data=df.means) #Model
 summary(lm13)
@@ -376,7 +366,6 @@ p13 <- ggplot(data=df.means, aes(y=CHR, x=tot_nod_std))+
       xlab("Nodule number")+
       ylab("CHR")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p13
 
 lm14 <- lm(tot_nod_std~nod_mass_std, data=df.means) #Model
 summary(lm14)
@@ -387,8 +376,7 @@ p14 <- ggplot(data=df.means, aes(y=tot_nod_std, x=nod_mass_std))+
       xlab("Nodule mass")+
       ylab("Nodule number")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-p14
-  
+
 #Corrlation between plant fitness proxies
 
 lm15 <- lm(RGR~plant_biomass_std, data=df.means)
@@ -400,7 +388,6 @@ p15 <- ggplot(data=df.means, aes(y=RGR, x=plant_biomass_std))+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       xlab("Plant biomass")+
       ylab("RGR")
-p15
 
 plot_grid(p9, p10, p11, p12, p13, p14, p15)
 
