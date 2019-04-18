@@ -538,7 +538,7 @@ p8 <- ggplot(data=df.means, aes(y=SI, x=RGR))+
       ylab("SI")+
       xlab("RGR")
 
-plot_grid(p1,p2,p3,p4,p5,p6,p7,p8, nrow=2, ncol=4, labels=c(S1, S2, S3, S4, S5, S6, S7, S8), hjust = -1, scale = 0.9)
+plot_grid(p1,p2,p3,p4, labels=c(S1, S2, S3, S4), hjust = c(-0.8, -1, -1, -1), scale=0.9)
 ```
 
     ## Warning: Removed 1 rows containing non-finite values (stat_smooth).
@@ -547,13 +547,19 @@ plot_grid(p1,p2,p3,p4,p5,p6,p7,p8, nrow=2, ncol=4, labels=c(S1, S2, S3, S4, S5, 
 
     ## Warning: Removed 1 rows containing missing values (geom_text).
 
+![](README_files/figure-markdown_github/Selection%20gradients-1.png)
+
+``` r
+plot_grid(p5,p6,p7,p8, labels=c(S5, S6, S7, S8), hjust = -1, scale = 0.9)
+```
+
     ## Warning: Removed 1 rows containing non-finite values (stat_smooth).
 
     ## Warning: Removed 1 rows containing missing values (geom_point).
 
     ## Warning: Removed 1 rows containing missing values (geom_text).
 
-![](README_files/figure-markdown_github/Selection%20gradients-1.png)
+![](README_files/figure-markdown_github/Selection%20gradients-2.png)
 
 Why do different fitness measures give different answers?
 =========================================================
@@ -743,6 +749,31 @@ p14 <- ggplot(data=df.means, aes(y=tot_nod_std, x=nod_mass_std))+
       ylab("Nodule number")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
 
+
+plot_grid(p9, p10, p11, p12, p13, p14)
+```
+
+    ## Warning: Removed 1 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 1 rows containing missing values (geom_point).
+
+    ## Warning: Removed 1 rows containing missing values (geom_text).
+
+    ## Warning: Removed 1 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 1 rows containing missing values (geom_point).
+
+    ## Warning: Removed 1 rows containing missing values (geom_text).
+
+    ## Warning: Removed 1 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 1 rows containing missing values (geom_point).
+
+    ## Warning: Removed 1 rows containing missing values (geom_text).
+
+![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-1.png)
+
+``` r
 #Corrlation between plant fitness proxies
 
 lm15 <- lm(RGR~plant_biomass_std, data=df.means)
@@ -775,26 +806,7 @@ p15 <- ggplot(data=df.means, aes(y=RGR, x=plant_biomass_std))+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       xlab("Plant biomass")+
       ylab("RGR")
-
-plot_grid(p9, p10, p11, p12, p13, p14, p15)
+p15
 ```
 
-    ## Warning: Removed 1 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 1 rows containing missing values (geom_point).
-
-    ## Warning: Removed 1 rows containing missing values (geom_text).
-
-    ## Warning: Removed 1 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 1 rows containing missing values (geom_point).
-
-    ## Warning: Removed 1 rows containing missing values (geom_text).
-
-    ## Warning: Removed 1 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 1 rows containing missing values (geom_point).
-
-    ## Warning: Removed 1 rows containing missing values (geom_text).
-
-![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-1.png)
+![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-2.png)
