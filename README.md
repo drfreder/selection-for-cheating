@@ -1,7 +1,7 @@
 Are rhizobia under selection to cheat?
 ================
 Megan Frederickson
-2019-04-17
+2019-04-18
 
 Fitness conflict or fitness alignment?
 --------------------------------------
@@ -33,21 +33,6 @@ Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Ad
 
 ``` r
 data <- read_csv("Table_S4.csv")
-```
-
-Calculate genotype means
-========================
-
-The data set has two measures of plant fitness and four measures of rhizobium fitness. First, we need to calculate the appropriate strain means for each one. I did this using the emmeans package, which calculates estimated marginal means from a linear mixed model. I have tried to stick as close as possible to the analysis presented in the paper, which states that "all effects were coded as fixed except block, which was treated as a random effect" and that variables were log-transformed as needed to improve normality. I also calculated strain means only on data from sympatric hosts, again following the paper's general modelling approach.
-
-``` r
-#Exclude control, uninoculated plants
-
-data <- subset(data, Strain != "control")
-
-#Exclude plants that did not form nodules
-
-data <- subset(data, `Total nodules` > 0)
 
 #Make sure factors are factors and numbers are numbers
 
@@ -57,25 +42,47 @@ data$Population <- as.factor(data$Population)
 data$`Total nodules` <- as.numeric(data$`Total nodules`)
 data$`Mean individual  nodule biomass (mg)` <- as.numeric(data$`Mean individual  nodule biomass (mg)`)
 data$`Shoots mass (g)` <- as.numeric(data$`Shoots mass (g)`)
+```
+
+    ## Warning: NAs introduced by coercion
+
+``` r
 data$`Roots mass (g)` <- as.numeric(data$`Roots mass (g)`)
+```
+
+    ## Warning: NAs introduced by coercion
+
+``` r
 data$`Relative Growth` <- as.numeric(data$`Relative Growth`)
+```
+
+    ## Warning: NAs introduced by coercion
+
+``` r
 data$Block <- as.factor(data$Block)
+```
 
-#Log transform as needed, as per paper
+Calculate genotype means
+========================
 
-data$log_nodules <- log(data$`Total nodules`)
-data$log_mean_nod_biomass <- log(data$`Mean individual  nodule biomass (mg)`)
+The dataset has two measures of plant fitness and four measures of rhizobium fitness. The two measures of plant fitness are total plant biomass (i.e., shoot plus root mass) and relative growth rate (i.e., inoculated plant biomass divided by control plant biomass, hereafter "RGR"). The four measures of rhizobium fitness are total number of nodules, mean nodule mass, and two genotypic frequencies, which the authors abbreviate CHR and SI. See original paper for details.
 
-#Combine shoot and root mass into one measure of plant biomass
-data$plant_biomass <- data$`Shoots mass (g)` + data$`Roots mass (g)`
+First, we need to calculate the appropriate strain means for each variable. I did this using the emmeans package, which calculates estimated marginal means from a linear mixed model. I have tried to stick as close as possible to the analysis presented in the paper, which states that "all effects were coded as fixed except block, which was treated as a random effect" and that variables were log-transformed as needed to improve normality. I also calculated strain means only on data from sympatric hosts, again following the approach in the paper.
+
+``` r
+#Clean up dataset a bit
+data <- subset(data, Strain != "control") #Exclude control, uninoculated plants
+data <- subset(data, `Total nodules` > 0) #Exclude inoculated plants that did not form nodules, as these are cases where the inoculation may have failed
+data$log_nodules <- log(data$`Total nodules`) #Log transform as needed, as per paper
+data$log_mean_nod_biomass <- log(data$`Mean individual  nodule biomass (mg)`) #Log transform as needed, as per paper
+data$plant_biomass <- data$`Shoots mass (g)` + data$`Roots mass (g)` #Combine shoot and root mass into one measure of plant biomass
 
 #Divide into sympatric and universal hosts, as per paper
-
 data_sym <- subset(data, `Host Line` != "A. heermannii" & `Host Line` != "UnH: Cla12.04" & `Host Line` != "UnL: Anz13.04")
 data_uni <- subset(data, `Host Line` == "A. heermannii" | `Host Line` == "UnH: Cla12.04" | `Host Line` == "UnL: Anz13.04")
 
-#Model total nodules
-lmm1 <- lmer(log_nodules~Population + Strain + `Host Line` + (1|Block), data=data_sym) 
+#Fit models 
+lmm1 <- lmer(log_nodules~Population + Strain + `Host Line` + (1|Block), data=data_sym) #Total nodule number model
 #plot(lmm1)
 #summary(lmm1)
 Anova(lmm1, type=3)
@@ -93,13 +100,10 @@ Anova(lmm1, type=3)
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 ``` r
-#Extract line means and save them to new dataframe
+df.means <- as.data.frame(emmeans(lmm1, "Strain")) #Extract line means and save them to new dataframe
+colnames(df.means) <- c("Strain", "Population", "tot_nod_lsmean", "tot_nod_SE", "tot_nod_df", "tot_nod_lowCL", "tot_nod_highCL") #Fix column names
 
-df.means <- as.data.frame(emmeans(lmm1, "Strain"))
-colnames(df.means) <- c("Strain", "Population", "tot_nod_lsmean", "tot_nod_SE", "tot_nod_df", "tot_nod_lowCL", "tot_nod_highCL")
-
-#Mean nodule mass
-lmm2 <- lmer(log_mean_nod_biomass~Population + Strain + `Host Line` + (1|Block), data=data_sym)
+lmm2 <- lmer(log_mean_nod_biomass~Population + Strain + `Host Line` + (1|Block), data=data_sym) #Mean nodule mass model
 #plot(lmm2)
 #summary(lmm2)
 Anova(lmm2, type=3)
@@ -117,15 +121,11 @@ Anova(lmm2, type=3)
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 ``` r
-#Extract line means and add them to the dataframe
-
-tmp <- as.data.frame(emmeans(lmm2, "Strain"))
+tmp <- as.data.frame(emmeans(lmm2, "Strain")) #Extract line means and add them to the dataframe
 colnames(tmp) <- c("Strain", "Population", "nod_mass_lsmean", "nod_mass_SE", "nod_mass_df", "nod_mass_lowCL", "nod_mass_highCL")
 df.means <- cbind(df.means, tmp[,3:7])
 
-#Plant biomass
-
-lmm3 <- lmer(plant_biomass~Population + Strain  + `Host Line` + (1|Block), data=data_sym)
+lmm3 <- lmer(plant_biomass~Population + Strain  + `Host Line` + (1|Block), data=data_sym) #Plant biomass model
 #plot(lmm3)
 #summary(lmm3)
 Anova(lmm3, type=3)
@@ -143,16 +143,11 @@ Anova(lmm3, type=3)
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 ``` r
-#Extract line means and add them to the dataframe
-
-tmp <- as.data.frame(emmeans(lmm3, "Strain"))
+tmp <- as.data.frame(emmeans(lmm3, "Strain")) #Extract line means and add them to the dataframe
 colnames(tmp) <- c("Strain", "Population", "plant_biomass_lsmean", "plant_biomass_SE", "plant_biomass_df", "plant_biomass_lowCL", "plant_biomass_highCL")
 df.means <- cbind(df.means, tmp[,3:7])
 
-#Relative growth rate, as per paper
-#The paper says they took the log of relative growth rate, but there are negative numbers, hmmm...
-
-lmm4 <- lmer(log(`Relative Growth`)~Population + Strain  + `Host Line` + (1|Block), data=data_sym)
+lmm4 <- lmer(log(`Relative Growth`)~Population + Strain  + `Host Line` + (1|Block), data=data_sym) #Relative growth rate, log-transformed as per the paper, but note this generates NAs because there are negative values
 ```
 
     ## Warning in log(`Relative Growth`): NaNs produced
@@ -179,20 +174,13 @@ Anova(lmm4, type=3)
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 ``` r
-#Extract line means and add them to the dataframe
-
-tmp <- as.data.frame(emmeans(lmm4, "Strain"))
+tmp <- as.data.frame(emmeans(lmm4, "Strain")) #Extract line means and add them to the dataframe
 colnames(tmp) <- c("Strain", "Population", "RGR_lsmean", "RGR_SE", "RGR_df", "RGR_lowCL", "RGR_highCL")
 df.means <- cbind(df.means, tmp[,3:7])
 
 #Add CHR and SI values for each isolate; they are identical for all replicates of each isolate, so no need to model them
-
 tmp <- data_sym %>% group_by(Strain) %>% summarize(CHR = mean(`CHR local abundance`), SI = mean(`SI local abunance`))
 df.means <- merge(df.means, tmp, by="Strain")
-
-#I can infer the biomass mass of plants in the controls for each strain just by simple math
-#If RGR is inoculated biomass/control biomass than control biomass is just inoculated biomass/RGR
-df.means$control_biomass <- df.means$plant_biomass_lsmean/df.means$RGR_lsmean
 
 #Standardize trait and fitness values for each population separately
 tmp <- df.means %>% group_by(Population) %>% summarize(
@@ -205,25 +193,25 @@ tmp <- df.means %>% group_by(Population) %>% summarize(
   pop_mean_plant_biomass=mean(plant_biomass_lsmean),
   pop_sd_plant_biomass=sd(plant_biomass_lsmean),
   pop_mean_RGR=mean(RGR_lsmean),
-  pop_sd_RGR=mean(RGR_lsmean)
+  pop_sd_RGR=sd(RGR_lsmean)
   )
-df.means <- merge(df.means, tmp, by="Population")
-
-#Standardize traits by subtracting the population mean and dividing by the population standard deviation
-df.means$plant_biomass_std <- (df.means$plant_biomass_lsmean - df.means$pop_mean_plant_biomass)/df.means$pop_sd_plant_biomass
-df.means$RGR <- (df.means$RGR_lsmean - df.means$pop_mean_RGR)/df.means$pop_sd_RGR
+df.means <- merge(df.means, tmp, by="Population") #Merge data frames
 
 #Relativize fitness by dividing by the mean fitness
 df.means$tot_nod_std <- df.means$tot_nod_lsmean/df.means$pop_mean_tot_nod
 df.means$nod_mass_std <- df.means$nod_mass_lsmean/df.means$pop_mean_nod_mass
+df.means$CHR_std <- df.means$CHR/df.means$pop_mean_CHR
+df.means$SI_std <- df.means$SI/df.means$pop_mean_SI
 
-#I did not relativize CHR and SI because I think they are already relative frequencies within each population
+#Standardize traits by subtracting the population mean and dividing by the population standard deviation
+df.means$plant_biomass_std <- (df.means$plant_biomass_lsmean - df.means$pop_mean_plant_biomass)/df.means$pop_sd_plant_biomass
+df.means$RGR_std <- (df.means$RGR_lsmean - df.means$pop_mean_RGR)/df.means$pop_sd_RGR
 ```
 
 Calculate selection gradients
 =============================
 
-Next, I adopt standard genetic selection analyses to estimate selection gradients, S, by regressing relativized fitness against standardized trait values.
+Next, I adopt standard genetic selection analyses to estimate selection gradients by regressing relativized fitness against standardized trait values.
 
 ``` r
 #Total nodules and plant biomass
@@ -259,11 +247,12 @@ S1 <- paste0(S1, ", ", pval1)
 
 p1 <- ggplot(data=df.means, aes(y=tot_nod_std, x=plant_biomass_std))+
       geom_point()+
-      geom_smooth(method="lm", se=FALSE)+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
+      geom_smooth(method="lm", se=TRUE)+
+      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+
       ylab("Nodule number")+
-      xlab("Plant biomass")+
-      guides(color=FALSE)
+      xlab("Plant biomass")
+
+ggsave("fitness_correlation.png", p1, dpi=600)
 
 #Nodule mass and plant biomass
 
@@ -306,28 +295,28 @@ p2 <- ggplot(data=df.means, aes(y=nod_mass_std, x=plant_biomass_std))+
 
 #CHR and plant biomass
 
-lm3 <- lm(CHR~plant_biomass_std, data=df.means) #Model
+lm3 <- lm(CHR_std~plant_biomass_std, data=df.means) #Model
 summary(lm3)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = CHR ~ plant_biomass_std, data = df.means)
+    ## lm(formula = CHR_std ~ plant_biomass_std, data = df.means)
     ## 
     ## Residuals:
-    ##      Min       1Q   Median       3Q      Max 
-    ## -0.16589 -0.07438 -0.03063  0.00495  0.49706 
+    ##     Min      1Q  Median      3Q     Max 
+    ## -1.2634 -0.6186 -0.4071  0.3447  2.1260 
     ## 
     ## Coefficients:
-    ##                   Estimate Std. Error t value Pr(>|t|)   
-    ## (Intercept)        0.09249    0.02920   3.167  0.00416 **
-    ## plant_biomass_std -0.05287    0.03329  -1.588  0.12539   
+    ##                   Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)         1.0000     0.1991   5.021 3.94e-05 ***
+    ## plant_biomass_std  -0.4478     0.2271  -1.972   0.0602 .  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1489 on 24 degrees of freedom
-    ## Multiple R-squared:  0.09508,    Adjusted R-squared:  0.05737 
-    ## F-statistic: 2.522 on 1 and 24 DF,  p-value: 0.1254
+    ## Residual standard error: 1.015 on 24 degrees of freedom
+    ## Multiple R-squared:  0.1394, Adjusted R-squared:  0.1036 
+    ## F-statistic: 3.889 on 1 and 24 DF,  p-value: 0.06023
 
 ``` r
 S3 <- paste0("S = ", round(summary(lm3)$coefficients[2,1], 3))
@@ -335,7 +324,7 @@ pval3 <- round(summary(lm3)$coefficients[2,4],3)
 pval3 <- ifelse(pval3 <= 0.05, paste0("p = ", pval3), "ns")
 S3 <- paste0(S3, ", ", pval3)
 
-p3 <- ggplot(data=df.means, aes(y=CHR, x=plant_biomass_std))+
+p3 <- ggplot(data=df.means, aes(y=CHR_std, x=plant_biomass_std))+
       geom_point()+
       geom_smooth(method="lm", se=FALSE, linetype="dashed")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
@@ -345,29 +334,29 @@ p3 <- ggplot(data=df.means, aes(y=CHR, x=plant_biomass_std))+
 
 #SI and plant biomass
 
-lm4 <- lm(SI~plant_biomass_std, data=df.means) #Model
+lm4 <- lm(SI_std~plant_biomass_std, data=df.means) #Model
 summary(lm4)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = SI ~ plant_biomass_std, data = df.means)
+    ## lm(formula = SI_std ~ plant_biomass_std, data = df.means)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.11700 -0.08748 -0.05674  0.11802  0.23694 
+    ## -0.82811 -0.54796 -0.02637  0.37176  1.81230 
     ## 
     ## Coefficients:
-    ##                     Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)        0.1313591  0.0220007   5.971 4.35e-06 ***
-    ## plant_biomass_std -0.0007803  0.0248091  -0.031    0.975    
+    ##                   Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)        1.00000    0.14758   6.776  1.8e-06 ***
+    ## plant_biomass_std  0.07864    0.16907   0.465    0.647    
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.11 on 23 degrees of freedom
-    ##   (1 observation deleted due to missingness)
-    ## Multiple R-squared:  4.301e-05,  Adjusted R-squared:  -0.04343 
-    ## F-statistic: 0.0009893 on 1 and 23 DF,  p-value: 0.9752
+    ## Residual standard error: 0.6763 on 19 degrees of freedom
+    ##   (5 observations deleted due to missingness)
+    ## Multiple R-squared:  0.01126,    Adjusted R-squared:  -0.04078 
+    ## F-statistic: 0.2163 on 1 and 19 DF,  p-value: 0.6471
 
 ``` r
 S4 <- paste0("S = ", round(summary(lm4)$coefficients[2,1], 3))
@@ -375,38 +364,37 @@ pval4 <- round(summary(lm4)$coefficients[2,4],3)
 pval4 <- ifelse(pval4 <= 0.05, paste0("p = ", pval4), "ns")
 S4 <- paste0(S4, ", ", pval4)
 
-p4 <- ggplot(data=df.means, aes(y=SI, x=plant_biomass_std))+
+p4 <- ggplot(data=df.means, aes(y=SI_std, x=plant_biomass_std))+
       geom_point()+
       geom_smooth(method="lm", se=FALSE, linetype="dashed")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       ylab("SI")+
-      xlab("Plant biomass")+
-      guides(color=FALSE)
+      xlab("Plant biomass")
 
 #Total nodules and RGR
 
-lm5 <- lm(tot_nod_std~RGR, data=df.means) #Model
+lm5 <- lm(tot_nod_std~RGR_std, data=df.means) #Model
 summary(lm5)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = tot_nod_std ~ RGR, data = df.means)
+    ## lm(formula = tot_nod_std ~ RGR_std, data = df.means)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.48293 -0.03392  0.00387  0.05128  0.20747 
+    ## -0.48398 -0.03390  0.00029  0.04925  0.20545 
     ## 
     ## Coefficients:
-    ##             Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)  1.00000    0.02452  40.781   <2e-16 ***
-    ## RGR         -0.06671    0.36065  -0.185    0.855    
+    ##               Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)  1.000e+00  2.454e-02  40.752   <2e-16 ***
+    ## RGR_std     -5.287e-05  2.798e-02  -0.002    0.999    
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.125 on 24 degrees of freedom
-    ## Multiple R-squared:  0.001423,   Adjusted R-squared:  -0.04018 
-    ## F-statistic: 0.03421 on 1 and 24 DF,  p-value: 0.8548
+    ## Residual standard error: 0.1251 on 24 degrees of freedom
+    ## Multiple R-squared:  1.488e-07,  Adjusted R-squared:  -0.04167 
+    ## F-statistic: 3.571e-06 on 1 and 24 DF,  p-value: 0.9985
 
 ``` r
 S5 <- paste0("S = ", round(summary(lm5)$coefficients[2,1], 3))
@@ -414,38 +402,37 @@ pval5 <- round(summary(lm5)$coefficients[2,4],3)
 pval5 <- ifelse(pval5 <= 0.05, paste0("p = ", pval5), "ns")
 S5 <- paste0(S5, ", ", pval5)
 
-p5 <- ggplot(data=df.means, aes(y=tot_nod_std, x=RGR))+
+p5 <- ggplot(data=df.means, aes(y=tot_nod_std, x=RGR_std))+
       geom_point()+
       geom_smooth(method="lm", se=FALSE, linetype="dashed")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       ylab("Nodule number")+
-      xlab("RGR")+
-      guides(color=FALSE)
+      xlab("RGR")
 
 #Nodule mass and RGR
 
-lm6 <- lm(nod_mass_std~RGR, data=df.means) #Model
+lm6 <- lm(nod_mass_std~RGR_std, data=df.means) #Model
 summary(lm6)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = nod_mass_std ~ RGR, data = df.means)
+    ## lm(formula = nod_mass_std ~ RGR_std, data = df.means)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.30834 -0.06279  0.01340  0.09198  0.35255 
+    ## -0.31423 -0.06893 -0.00134  0.09635  0.33829 
     ## 
     ## Coefficients:
     ##             Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)  1.00000    0.03330  30.028   <2e-16 ***
-    ## RGR          0.05256    0.48980   0.107    0.915    
+    ## (Intercept)  1.00000    0.03324  30.081   <2e-16 ***
+    ## RGR_std     -0.01171    0.03790  -0.309     0.76    
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1698 on 24 degrees of freedom
-    ## Multiple R-squared:  0.0004795,  Adjusted R-squared:  -0.04117 
-    ## F-statistic: 0.01151 on 1 and 24 DF,  p-value: 0.9154
+    ## Residual standard error: 0.1695 on 24 degrees of freedom
+    ## Multiple R-squared:  0.003959,   Adjusted R-squared:  -0.03754 
+    ## F-statistic: 0.09538 on 1 and 24 DF,  p-value: 0.7601
 
 ``` r
 S6 <- paste0("S = ", round(summary(lm6)$coefficients[2,1], 3))
@@ -453,38 +440,37 @@ pval6 <- round(summary(lm6)$coefficients[2,4],3)
 pval6 <- ifelse(pval6 <= 0.05, paste0("p = ", pval6), "ns")
 S6 <- paste0(S6, ", ", pval6)
 
-p6 <- ggplot(data=df.means, aes(y=nod_mass_std, x=RGR))+
+p6 <- ggplot(data=df.means, aes(y=nod_mass_std, x=RGR_std))+
       geom_point()+
       geom_smooth(method="lm", se=FALSE, linetype="dashed")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       ylab("Nodule mass")+
-      xlab("RGR")+
-      guides(color=FALSE)
+      xlab("RGR")
 
 #CHR and RGR
 
-lm7 <- lm(CHR~RGR, data=df.means) #Model
+lm7 <- lm(CHR_std~RGR_std, data=df.means) #Model
 summary(lm7)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = CHR ~ RGR, data = df.means)
+    ## lm(formula = CHR_std ~ RGR_std, data = df.means)
     ## 
     ## Residuals:
-    ##      Min       1Q   Median       3Q      Max 
-    ## -0.13020 -0.07043 -0.05992  0.00096  0.48845 
+    ##     Min      1Q  Median      3Q     Max 
+    ## -1.2209 -0.6395 -0.3932  0.3639  2.3859 
     ## 
     ## Coefficients:
-    ##             Estimate Std. Error t value Pr(>|t|)   
-    ## (Intercept)  0.09249    0.02916   3.171  0.00412 **
-    ## RGR         -0.68991    0.42894  -1.608  0.12082   
+    ##             Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)   1.0000     0.2034   4.917 5.12e-05 ***
+    ## RGR_std      -0.3843     0.2319  -1.657     0.11    
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1487 on 24 degrees of freedom
-    ## Multiple R-squared:  0.0973, Adjusted R-squared:  0.05969 
-    ## F-statistic: 2.587 on 1 and 24 DF,  p-value: 0.1208
+    ## Residual standard error: 1.037 on 24 degrees of freedom
+    ## Multiple R-squared:  0.1027, Adjusted R-squared:  0.06531 
+    ## F-statistic: 2.747 on 1 and 24 DF,  p-value: 0.1105
 
 ``` r
 S7 <- paste0("S = ", round(summary(lm7)$coefficients[2,1], 3))
@@ -492,7 +478,7 @@ pval7 <- round(summary(lm7)$coefficients[2,4],3)
 pval7 <- ifelse(pval7 <= 0.05, paste0("p = ", pval7), "ns")
 S7 <- paste0(S7, ", ", pval7)
 
-p7 <- ggplot(data=df.means, aes(y=CHR, x=RGR))+
+p7 <- ggplot(data=df.means, aes(y=CHR_std, x=RGR_std))+
       geom_point()+
       geom_smooth(method="lm", se=FALSE, linetype="dashed")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
@@ -501,29 +487,29 @@ p7 <- ggplot(data=df.means, aes(y=CHR, x=RGR))+
 
 #SI and RGR
 
-lm8 <- lm(SI~RGR, data=df.means) #Model
+lm8 <- lm(SI_std~RGR_std, data=df.means) #Model
 summary(lm8)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = SI ~ RGR, data = df.means)
+    ## lm(formula = SI_std ~ RGR_std, data = df.means)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.12043 -0.09170 -0.04298  0.11322  0.24101 
+    ## -0.79047 -0.57746 -0.01811  0.34575  1.81801 
     ## 
     ## Coefficients:
     ##             Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)  0.13136    0.02184   6.016 3.91e-06 ***
-    ## RGR         -0.18190    0.31493  -0.578    0.569    
+    ## (Intercept)  1.00000    0.14815   6.750 1.89e-06 ***
+    ## RGR_std      0.04443    0.16972   0.262    0.796    
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1092 on 23 degrees of freedom
-    ##   (1 observation deleted due to missingness)
-    ## Multiple R-squared:  0.0143, Adjusted R-squared:  -0.02856 
-    ## F-statistic: 0.3336 on 1 and 23 DF,  p-value: 0.5691
+    ## Residual standard error: 0.6789 on 19 degrees of freedom
+    ##   (5 observations deleted due to missingness)
+    ## Multiple R-squared:  0.003594,   Adjusted R-squared:  -0.04885 
+    ## F-statistic: 0.06853 on 1 and 19 DF,  p-value: 0.7963
 
 ``` r
 S8 <- paste0("S = ", round(summary(lm8)$coefficients[2,1], 3))
@@ -531,7 +517,7 @@ pval8 <- round(summary(lm8)$coefficients[2,4],3)
 pval8 <- ifelse(pval8 <= 0.05, paste0("p = ", pval8), "ns")
 S8 <- paste0(S8, ", ", pval8)
 
-p8 <- ggplot(data=df.means, aes(y=SI, x=RGR))+
+p8 <- ggplot(data=df.means, aes(y=SI_std, x=RGR_std))+
       geom_point()+
       geom_smooth(method="lm", se=FALSE, linetype="dashed")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
@@ -541,23 +527,23 @@ p8 <- ggplot(data=df.means, aes(y=SI, x=RGR))+
 plot_grid(p1,p2,p3,p4, labels=c(S1, S2, S3, S4), hjust = c(-0.8, -1, -1, -1), scale=0.9)
 ```
 
-    ## Warning: Removed 1 rows containing non-finite values (stat_smooth).
+    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
 
-    ## Warning: Removed 1 rows containing missing values (geom_point).
+    ## Warning: Removed 5 rows containing missing values (geom_point).
 
-    ## Warning: Removed 1 rows containing missing values (geom_text).
+    ## Warning: Removed 5 rows containing missing values (geom_text).
 
 ![](README_files/figure-markdown_github/Selection%20gradients-1.png)
 
 ``` r
-plot_grid(p5,p6,p7,p8, labels=c(S5, S6, S7, S8), hjust = -1, scale = 0.9)
+plot_grid(p5,p6,p7,p8, labels=c(S5, S6, S7, S8), hjust = c(-1.7, -1, -1, -1), scale = 0.9)
 ```
 
-    ## Warning: Removed 1 rows containing non-finite values (stat_smooth).
+    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
 
-    ## Warning: Removed 1 rows containing missing values (geom_point).
+    ## Warning: Removed 5 rows containing missing values (geom_point).
 
-    ## Warning: Removed 1 rows containing missing values (geom_text).
+    ## Warning: Removed 5 rows containing missing values (geom_text).
 
 ![](README_files/figure-markdown_github/Selection%20gradients-2.png)
 
@@ -566,158 +552,201 @@ Why do different fitness measures give different answers?
 
 ``` r
 #Correlations among rhizobium fitness proxies
-lm9 <- lm(SI~CHR, data=df.means) #Model
+lm9 <- lm(SI_std~CHR_std, data=df.means) #Model
 summary(lm9)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = SI ~ CHR, data = df.means)
+    ## lm(formula = SI_std ~ CHR_std, data = df.means)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.13783 -0.08810 -0.04400  0.07736  0.23980 
+    ## -0.85915 -0.56948  0.01595  0.27896  1.85360 
     ## 
     ## Coefficients:
     ##             Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)  0.11498    0.02516   4.570 0.000136 ***
-    ## CHR          0.17131    0.13977   1.226 0.232722    
+    ## (Intercept)  0.96279    0.20532   4.689  0.00016 ***
+    ## CHR_std      0.03721    0.14216   0.262  0.79635    
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1065 on 23 degrees of freedom
-    ##   (1 observation deleted due to missingness)
-    ## Multiple R-squared:  0.06131,    Adjusted R-squared:  0.0205 
-    ## F-statistic: 1.502 on 1 and 23 DF,  p-value: 0.2327
+    ## Residual standard error: 0.6789 on 19 degrees of freedom
+    ##   (5 observations deleted due to missingness)
+    ## Multiple R-squared:  0.003592,   Adjusted R-squared:  -0.04885 
+    ## F-statistic: 0.0685 on 1 and 19 DF,  p-value: 0.7963
 
 ``` r
-p9 <- ggplot(data=df.means, aes(y=SI, x=CHR))+
+p9 <- ggplot(data=df.means, aes(y=SI_std, x=CHR_std))+
       geom_point()+
       geom_smooth(method="lm", se=FALSE)+
       xlab("CHR")+
       ylab("SI")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
+p9
+```
 
-lm10 <- lm(SI~nod_mass_std, data=df.means) #Model
+    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 5 rows containing missing values (geom_point).
+
+    ## Warning: Removed 5 rows containing missing values (geom_text).
+
+![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-1.png)
+
+``` r
+lm10 <- lm(SI_std~nod_mass_std, data=df.means) #Model
 summary(lm10)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = SI ~ nod_mass_std, data = df.means)
+    ## lm(formula = SI_std ~ nod_mass_std, data = df.means)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.11942 -0.09091 -0.05124  0.11540  0.24595 
+    ## -0.97665 -0.44368 -0.00975  0.19633  1.56611 
     ## 
     ## Coefficients:
-    ##              Estimate Std. Error t value Pr(>|t|)
-    ## (Intercept)   0.19860    0.13334   1.489    0.150
-    ## nod_mass_std -0.06718    0.13144  -0.511    0.614
+    ##              Estimate Std. Error t value Pr(>|t|)   
+    ## (Intercept)    2.5878     0.8256   3.134  0.00546 **
+    ## nod_mass_std  -1.5878     0.8144  -1.950  0.06614 . 
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1093 on 23 degrees of freedom
-    ##   (1 observation deleted due to missingness)
-    ## Multiple R-squared:  0.01123,    Adjusted R-squared:  -0.03176 
-    ## F-statistic: 0.2612 on 1 and 23 DF,  p-value: 0.6142
+    ## Residual standard error: 0.6208 on 19 degrees of freedom
+    ##   (5 observations deleted due to missingness)
+    ## Multiple R-squared:  0.1667, Adjusted R-squared:  0.1228 
+    ## F-statistic: 3.801 on 1 and 19 DF,  p-value: 0.06614
 
 ``` r
-p10 <- ggplot(data=df.means, aes(y=SI, x=nod_mass_std))+
+p10 <- ggplot(data=df.means, aes(y=SI_std, x=nod_mass_std))+
       geom_point()+
       geom_smooth(method="lm", se=FALSE)+
       xlab("Nodule mass")+
       ylab("SI")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
+p10
+```
 
-lm11 <- lm(SI~tot_nod_std, data=df.means) #Model
+    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 5 rows containing missing values (geom_point).
+
+    ## Warning: Removed 5 rows containing missing values (geom_text).
+
+![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-2.png)
+
+``` r
+lm11 <- lm(SI_std~tot_nod_std, data=df.means) #Model
 summary(lm11)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = SI ~ tot_nod_std, data = df.means)
+    ## lm(formula = SI_std ~ tot_nod_std, data = df.means)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.12527 -0.09481 -0.02060  0.10651  0.22264 
+    ## -0.85654 -0.56652 -0.03333  0.31532  1.79756 
     ## 
     ## Coefficients:
     ##             Estimate Std. Error t value Pr(>|t|)
-    ## (Intercept)  0.01055    0.18176   0.058    0.954
-    ## tot_nod_std  0.12141    0.18132   0.670    0.510
+    ## (Intercept)    2.188      2.561   0.854    0.403
+    ## tot_nod_std   -1.188      2.557  -0.465    0.647
     ## 
-    ## Residual standard error: 0.1089 on 23 degrees of freedom
-    ##   (1 observation deleted due to missingness)
-    ## Multiple R-squared:  0.01912,    Adjusted R-squared:  -0.02353 
-    ## F-statistic: 0.4483 on 1 and 23 DF,  p-value: 0.5098
+    ## Residual standard error: 0.6763 on 19 degrees of freedom
+    ##   (5 observations deleted due to missingness)
+    ## Multiple R-squared:  0.01124,    Adjusted R-squared:  -0.0408 
+    ## F-statistic: 0.216 on 1 and 19 DF,  p-value: 0.6474
 
 ``` r
-p11 <- ggplot(data=df.means, aes(y=SI, x=tot_nod_std))+
+p11 <- ggplot(data=df.means, aes(y=SI_std, x=tot_nod_std))+
       geom_point()+
       geom_smooth(method="lm", se=FALSE)+
       xlab("Nodule number")+
       ylab("SI")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
+p11
+```
 
-lm12 <- lm(CHR~nod_mass_std, data=df.means) #Model
+    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 5 rows containing missing values (geom_point).
+
+    ## Warning: Removed 5 rows containing missing values (geom_text).
+
+![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-3.png)
+
+``` r
+lm12 <- lm(CHR_std~nod_mass_std, data=df.means) #Model
 summary(lm12)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = CHR ~ nod_mass_std, data = df.means)
+    ## lm(formula = CHR_std ~ nod_mass_std, data = df.means)
     ## 
     ## Residuals:
-    ##      Min       1Q   Median       3Q      Max 
-    ## -0.15607 -0.08306 -0.04832  0.01887  0.44022 
+    ##     Min      1Q  Median      3Q     Max 
+    ## -0.9856 -0.7460 -0.4616  0.5164  2.5514 
     ## 
     ## Coefficients:
-    ##              Estimate Std. Error t value Pr(>|t|)  
-    ## (Intercept)    0.3584     0.1825   1.964   0.0612 .
-    ## nod_mass_std  -0.2659     0.1801  -1.476   0.1529  
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ##              Estimate Std. Error t value Pr(>|t|)
+    ## (Intercept)     2.017      1.316   1.532    0.139
+    ## nod_mass_std   -1.017      1.299  -0.783    0.441
     ## 
-    ## Residual standard error: 0.1499 on 24 degrees of freedom
-    ## Multiple R-squared:  0.08324,    Adjusted R-squared:  0.04504 
-    ## F-statistic: 2.179 on 1 and 24 DF,  p-value: 0.1529
+    ## Residual standard error: 1.081 on 24 degrees of freedom
+    ## Multiple R-squared:  0.0249, Adjusted R-squared:  -0.01573 
+    ## F-statistic: 0.6128 on 1 and 24 DF,  p-value: 0.4414
 
 ``` r
-p12 <- ggplot(data=df.means, aes(y=CHR, x=nod_mass_std))+
+p12 <- ggplot(data=df.means, aes(y=CHR_std, x=nod_mass_std))+
       geom_point()+
       geom_smooth(method="lm", se=FALSE)+
       xlab("Nodule mass")+
       ylab("CHR")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
+p12
+```
 
-lm13 <- lm(CHR~tot_nod_std, data=df.means) #Model
+![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-4.png)
+
+``` r
+lm13 <- lm(CHR_std~tot_nod_std, data=df.means) #Model
 summary(lm13)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = CHR ~ tot_nod_std, data = df.means)
+    ## lm(formula = CHR_std ~ tot_nod_std, data = df.means)
     ## 
     ## Residuals:
-    ##      Min       1Q   Median       3Q      Max 
-    ## -0.08636 -0.07815 -0.06983  0.02307  0.52308 
+    ##     Min      1Q  Median      3Q     Max 
+    ## -0.9292 -0.7286 -0.4693  0.5858  2.5298 
     ## 
     ## Coefficients:
     ##             Estimate Std. Error t value Pr(>|t|)
-    ## (Intercept)  0.08047    0.25717   0.313    0.757
-    ## tot_nod_std  0.01202    0.25533   0.047    0.963
+    ## (Intercept)   0.7937     1.7981   0.441    0.663
+    ## tot_nod_std   0.2063     1.7853   0.116    0.909
     ## 
-    ## Residual standard error: 0.1565 on 24 degrees of freedom
-    ## Multiple R-squared:  9.239e-05,  Adjusted R-squared:  -0.04157 
-    ## F-statistic: 0.002218 on 1 and 24 DF,  p-value: 0.9628
+    ## Residual standard error: 1.094 on 24 degrees of freedom
+    ## Multiple R-squared:  0.0005562,  Adjusted R-squared:  -0.04109 
+    ## F-statistic: 0.01336 on 1 and 24 DF,  p-value: 0.909
 
 ``` r
-p13 <- ggplot(data=df.means, aes(y=CHR, x=tot_nod_std))+
+p13 <- ggplot(data=df.means, aes(y=CHR_std, x=tot_nod_std))+
       geom_point()+
       geom_smooth(method="lm", se=FALSE)+
       xlab("Nodule number")+
       ylab("CHR")+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
+p13
+```
 
+![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-5.png)
+
+``` r
 lm14 <- lm(tot_nod_std~nod_mass_std, data=df.means) #Model
 summary(lm14)
 ```
@@ -753,54 +782,54 @@ p14 <- ggplot(data=df.means, aes(y=tot_nod_std, x=nod_mass_std))+
 plot_grid(p9, p10, p11, p12, p13, p14)
 ```
 
-    ## Warning: Removed 1 rows containing non-finite values (stat_smooth).
+    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
 
-    ## Warning: Removed 1 rows containing missing values (geom_point).
+    ## Warning: Removed 5 rows containing missing values (geom_point).
 
-    ## Warning: Removed 1 rows containing missing values (geom_text).
+    ## Warning: Removed 5 rows containing missing values (geom_text).
 
-    ## Warning: Removed 1 rows containing non-finite values (stat_smooth).
+    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
 
-    ## Warning: Removed 1 rows containing missing values (geom_point).
+    ## Warning: Removed 5 rows containing missing values (geom_point).
 
-    ## Warning: Removed 1 rows containing missing values (geom_text).
+    ## Warning: Removed 5 rows containing missing values (geom_text).
 
-    ## Warning: Removed 1 rows containing non-finite values (stat_smooth).
+    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
 
-    ## Warning: Removed 1 rows containing missing values (geom_point).
+    ## Warning: Removed 5 rows containing missing values (geom_point).
 
-    ## Warning: Removed 1 rows containing missing values (geom_text).
+    ## Warning: Removed 5 rows containing missing values (geom_text).
 
-![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-1.png)
+![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-6.png)
 
 ``` r
 #Corrlation between plant fitness proxies
 
-lm15 <- lm(RGR~plant_biomass_std, data=df.means)
+lm15 <- lm(RGR_std~plant_biomass_std, data=df.means)
 summary(lm15)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = RGR ~ plant_biomass_std, data = df.means)
+    ## lm(formula = RGR_std ~ plant_biomass_std, data = df.means)
     ## 
     ## Residuals:
-    ##       Min        1Q    Median        3Q       Max 
-    ## -0.173456 -0.019751  0.001007  0.013759  0.121792 
+    ##      Min       1Q   Median       3Q      Max 
+    ## -1.82251 -0.27160  0.05819  0.22504  1.63749 
     ## 
     ## Coefficients:
     ##                    Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)       1.297e-17  1.070e-02   0.000  1.00000    
-    ## plant_biomass_std 4.936e-02  1.220e-02   4.045  0.00047 ***
+    ## (Intercept)       2.057e-16  1.124e-01   0.000        1    
+    ## plant_biomass_std 7.783e-01  1.282e-01   6.073 2.85e-06 ***
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.05457 on 24 degrees of freedom
-    ## Multiple R-squared:  0.4054, Adjusted R-squared:  0.3806 
-    ## F-statistic: 16.36 on 1 and 24 DF,  p-value: 0.0004699
+    ## Residual standard error: 0.5732 on 24 degrees of freedom
+    ## Multiple R-squared:  0.6058, Adjusted R-squared:  0.5894 
+    ## F-statistic: 36.88 on 1 and 24 DF,  p-value: 2.849e-06
 
 ``` r
-p15 <- ggplot(data=df.means, aes(y=RGR, x=plant_biomass_std))+
+p15 <- ggplot(data=df.means, aes(y=RGR_std, x=plant_biomass_std))+
       geom_point()+
       geom_smooth(method="lm", se=FALSE)+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
@@ -809,4 +838,4 @@ p15 <- ggplot(data=df.means, aes(y=RGR, x=plant_biomass_std))+
 p15
 ```
 
-![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-2.png)
+![](README_files/figure-markdown_github/Correlations%20among%20fitness%20proxies,%20-7.png)
