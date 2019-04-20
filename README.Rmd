@@ -9,7 +9,7 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Fitness conflict or fitness alignment?
+## Is there fitness conflict between legumes and rhizobia?
 
 This repository re-analyzes the data in: 
 
@@ -19,18 +19,17 @@ The authors make the case that in their legume-rhizobium study system, the rhizo
 
 Here, I re-analyze their data using a standard genetic selection analysis approach, in which relativized fitness is regressed against standardized family-mean trait values. 
 
-First we need to load some nifty R packages.
+```{r Load packages, message=FALSE, warning=FALSE, include=FALSE}
 
-```{r Load packages, message=FALSE, warning=FALSE}
-
-#Load useful packages
 library(tidyverse) #includes ggplot2, dplyr, readr, stringr
+library(knitr)
 library(cowplot)
 library(car)
 library(glmm)
 library(nlme)
 library(lme4)
 library(emmeans)
+library(outliers)
 
 ```
 
@@ -38,13 +37,12 @@ I downloaded the data from Dryad on April 16, 2019. The citation for the data pa
 
 Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Data from: Interspecific conflict and the evolution of ineffective rhizobia. Dryad Digital Repository. https://doi.org/10.5061/dryad.cr65269
 
-```{r Download data, message=FALSE, warning=FALSE}
+First we need to read in the data, which is in three different tables in the Dryad package, and wrangle it in to a usable form.
 
-data <- read_csv("Table_S4.csv")
+```{r Read in and wrangle data, message=FALSE, warning=FALSE}
 
-#Make sure factors are factors and numbers are numbers
-
-data$Strain <- as.factor(data$Strain)
+data <- read_csv("Table_S4.csv") #Read in single inoculation experiment data
+data$Strain <- as.factor(data$Strain) #Factors are factors and numbers are numbers
 data$`Host Line` <- as.factor(data$`Host Line`)
 data$Population <- as.factor(data$Population)
 data$`Total nodules` <- as.numeric(data$`Total nodules`)
@@ -54,13 +52,176 @@ data$`Roots mass (g)` <- as.numeric(data$`Roots mass (g)`)
 data$`Relative Growth` <- as.numeric(data$`Relative Growth`)
 data$Block <- as.factor(data$Block)
 
+#Ignore strain 156, just for interest sake
+#data <- subset(data, Strain != 156)
+
+gf.data <- read_csv("Table_S1.csv") #Read in genotype frequency data
+gf.data$SI <- paste0(gf.data$`nodZ haplotype`, gf.data$`nolL haplotype`) #Concatenate SI haplotypes, as per paper
+gf.data$CHR <- paste0(gf.data$`glnII Haplotype`, gf.data$`recA Haplotype`) #Concatenate CHR haplotypes, as per paper
+gf.data <- subset(gf.data, `nolL haplotype` != "X") #Remove Xs, which are failures to amplify/sequence, as per Dryad data description
+gf.data$plant <- gsub('_.*', "", gf.data$`Full Strain name`) #Make a column for unique plant ids
+gf.data$plant <- toupper(gsub('R.*', "", gf.data$plant))  #Make plant ids upper case
+gf.data <- gf.data[,c(1, 10, 2:9)] #Reorder columns
+gf.data.long <- gather(gf.data, locus, haplotype, `glnII Haplotype`:CHR, factor_key=TRUE) #Make wide data into long format
+gf.data.long <- subset(gf.data.long, haplotype != "n/an/a") #Remove NAs
+gf.data.long <- subset(gf.data.long, locus == "SI" | locus == "CHR") #Prune to just CHR and SI haplotypes
+
+#Summarize frequencies per plant
+sum.gf <- gf.data.long %>% group_by(plant, `Plant Collection Site`, Year, locus, haplotype) %>% summarize(n = n())
+tmp <- gf.data %>% group_by(plant) %>% summarize(total_n=n())
+sum.gf <- merge(sum.gf, tmp, by="plant")
+
+#Split by locus
+sum.CHR <- subset(sum.gf, locus == "CHR")
+sum.SI <- subset(sum.gf, locus == "SI")
+
+#Make lists of which haplotypes are in each site
+chr.haplos <- sum.CHR %>% group_by(`Plant Collection Site`, haplotype) %>% summarize(n=n())
+SI.haplos <- sum.SI %>% group_by(`Plant Collection Site`, haplotype) %>% summarize(n=n())
+
+#Initialize two empty dataframes, one for CHR and one for SI, to put all the data in 
+full.chr <- data.frame(plant = character(),
+                 `Plant Collection Site` = character(), 
+                 Year = character(),
+                 locus = character(),
+                 haplotype = character(),
+                 n = character(),
+                 total_n = character(),
+                 stringsAsFactors=FALSE) 
+
+full.SI <- data.frame(plant = character(),
+                 `Plant Collection Site` = character(), 
+                 Year = character(),
+                 locus = character(),
+                 haplotype = character(),
+                 n = character(),
+                 total_n = character(),
+                 stringsAsFactors=FALSE) 
+
+#Add zeros for strains present in a population but not sampled in a particular plant
+for(i in 1:length(unique(sum.CHR$plant))){
+  
+  plant.id = as.character(unique(sum.CHR$plant)[i])
+  tmp2 <- subset(sum.CHR, plant == plant.id)
+  tmp3 <- chr.haplos[chr.haplos$`Plant Collection Site` == tmp2[1,2], ]
+  tmp4 <- data.frame(matrix(ncol = 7, nrow = length(setdiff(tmp3$haplotype, tmp2$haplotype))))
+  colnames(tmp4) <- colnames(tmp2)  
+  tmp4$plant <- plant.id
+  tmp4$`Plant Collection Site` <- tmp2[1,2]
+  tmp4$Year <- tmp2[1,3]
+  tmp4$locus <- "CHR"
+  tmp4$haplotype <- setdiff(tmp3$haplotype, tmp2$haplotype)
+  tmp4$n <- 0
+  tmp4$total_n = tmp2[1,7]
+  tmp5 <- rbind(tmp2, tmp4)
+  full.chr <- rbind(full.chr, tmp5)
+}
+
+for(i in 1:length(unique(sum.SI$plant))){
+  
+  plant.id = as.character(unique(sum.SI$plant)[i])
+  tmp2 <- subset(sum.SI, plant == plant.id)
+  tmp3 <- SI.haplos[SI.haplos$`Plant Collection Site` == tmp2[1,2], ]
+  tmp4 <- data.frame(matrix(ncol = 7, nrow = length(setdiff(tmp3$haplotype, tmp2$haplotype))))
+  colnames(tmp4) <- colnames(tmp2)  
+  tmp4$plant <- plant.id
+  tmp4$`Plant Collection Site` <- tmp2[1,2]
+  tmp4$Year <- tmp2[1,3]
+  tmp4$locus <- "SI"
+  tmp4$haplotype <- setdiff(tmp3$haplotype, tmp2$haplotype)
+  tmp4$n <- 0
+  tmp4$total_n = tmp2[1,7]
+  tmp5 <- rbind(tmp2, tmp4)
+  full.SI <- rbind(full.SI, tmp5)
+}
+  
+#Calculate frequencies
+full.chr$freq <- full.chr$n/full.chr$total_n  
+full.SI$freq <- full.SI$n/full.SI$total_n  
+
+#Summarize frequences by population, haplotype, and locus
+chr.sum <- full.chr %>% group_by(`Plant Collection Site`, haplotype) %>% summarize(mean_CHR_freq = mean(freq), n_CHR_freq = n(), 
+                                                                                   sd_CHR_freq = sd(freq), se_CHR=sd_CHR_freq/sqrt(n_CHR_freq))
+chr.sum$upper_CHR_CI <- chr.sum$mean_CHR_freq + (1.96*chr.sum$se_CHR/sqrt(chr.sum$n_CHR_freq))
+chr.sum$lower_CHR_CI <- chr.sum$mean_CHR_freq - (1.96*chr.sum$se_CHR/sqrt(chr.sum$n_CHR_freq))
+chr.sum$CHRpop <- paste0(chr.sum$`Plant Collection Site`, chr.sum$haplotype)
+SI.sum <- full.SI %>% group_by(`Plant Collection Site`, haplotype) %>% summarize(mean_SI_freq = mean(freq), n_SI_freq = n(), 
+                                                                                   sd_SI_freq = sd(freq), se_SI=sd_SI_freq/sqrt(n_SI_freq))
+SI.sum$upper_SI_CI <- SI.sum$mean_SI_freq + (1.96*SI.sum$se_SI/sqrt(SI.sum$n_SI_freq))
+SI.sum$lower_SI_CI <- SI.sum$mean_SI_freq - (1.96*SI.sum$se_SI/sqrt(SI.sum$n_SI_freq))
+SI.sum[77,2] <- "Z62L79"  #Fix a typo in the original table
+SI.sum$SIpop <- paste0(SI.sum$`Plant Collection Site`, SI.sum$haplotype)
+
+#Match strain names to genotypes
+strain_names <- read_csv("Table_S2.csv")
+strain_names <- strain_names[-1, c(-7, -9, -11, -13, -18)]
+
+#Fix population names
+strain_names$Population <- ifelse(strain_names$Population == "Bodega Marine Reserve", "BMR",
+                                  ifelse(strain_names$Population == "Griffith Park", "GRI",
+                                  ifelse(strain_names$Population == "Robert J. Bernard Biological Field Station", "CLA",
+                                  ifelse(strain_names$Population == "University of California Riverside", "UCR", 
+                                  ifelse(strain_names$Population == "Anza Borrego Desert State Park", "ANZ", "YUC")))))
+
+#Remove underscores from haplotype names to merge between datasets
+strain_names$`chromosome haplotype (CHR)` <- gsub("_", "", strain_names$`chromosome haplotype (CHR)`)
+strain_names$`symbiosis island  haplotye (SI)` <- gsub("_", "", strain_names$`symbiosis island  haplotye (SI)`)
+strain_names$SIpop <- paste0(strain_names$Population, strain_names$`symbiosis island  haplotye (SI)`)
+strain_names$CHRpop <- paste0(strain_names$Population, strain_names$`chromosome haplotype (CHR)`)
+
+#Merge datasets
+full.geno <- merge(strain_names, SI.sum, by="SIpop", all.x = TRUE)
+full.geno <- merge(full.geno, chr.sum, by = "CHRpop", all.x =TRUE)
+
+#Calculate nodules and plants sampled per population
+sum <- sum.gf %>% group_by(`Plant Collection Site`, locus) %>% summarize(total_nods_sampled=sum(n), total_plants_sampled=length(unique(plant)))
+
+```
+
+# How many nodules and plants were sampled per site?
+The sampling is uneven, with few plants sampled in ANZ and YUC.
+
+```{r Sampling}
+table <- sum
+colnames(table) <- c("Plant Collection Site", "Locus", "Nodules sampled (no.)", "Plants sampled (no.)")
+kable(table)
+```
+
+# Plot sampling of CHR and SI frequencies 
+
+```{r Data distributions}
+
+lm1 <- lm(as.numeric(`CHR genotype frequency`)~n_CHR_freq, data=full.geno)
+summary(lm1)
+
+CHR <- ggplot(data=full.geno, aes(y=as.numeric(`CHR genotype frequency`), x=n_CHR_freq, color=Population))+
+       geom_jitter(width=0.25)+
+        geom_smooth(method="lm", se=FALSE, color=1)+
+        xlab("Plants sampled (no.)")+
+        ylab("CHR genotype frequency")+
+        geom_text(aes(label=`Inoculation #`),hjust=0, vjust=0, size=2.5)
+CHR
+
+lm2 <- lm(as.numeric(`SI genotype frequency`)~n_SI_freq, data=full.geno)
+summary(lm2)
+
+SI <- ggplot(data=full.geno, aes(y=as.numeric(`SI genotype frequency`), x=as.numeric(n_SI_freq), color=Population))+
+        geom_smooth(method="lm", se=FALSE, color=1)+
+        geom_jitter(width = 0.25)+
+        xlab("Plants sampled (no.)")+
+        ylab("SI genotype frequency")+
+        geom_text(aes(label=`Inoculation #`),hjust=0, vjust=0, size=2.5)
+
+fig1 <- plot_grid(CHR, SI, nrow=2, labels="auto")
+save_plot("Fig1.png", fig1, base_width=8, base_height=8)
+
 ```
 
 # Calculate genotype means
 
-The dataset has two measures of plant fitness and four measures of rhizobium fitness. The two measures of plant fitness are total plant biomass (i.e., shoot plus root mass) and relative growth rate (i.e., inoculated plant biomass divided by control plant biomass, hereafter "RGR"). The four measures of rhizobium fitness are total number of nodules, mean nodule mass, and two genotypic frequencies, which the authors abbreviate CHR and SI. See original paper for details. 
+This dataset has two measures of plant fitness and four measures of rhizobium fitness. The two measures of plant fitness are total plant biomass (i.e., shoot plus root mass) and relative growth rate (i.e., inoculated plant biomass divided by control plant biomass, hereafter "RGR"). The four measures of rhizobium fitness are total number of nodules, mean nodule mass, and the two genotypic frequencies, which the authors abbreviate CHR and SI. See original paper for details. 
 
-First, we need to calculate the appropriate strain means for each variable. I did this using the emmeans package, which calculates estimated marginal means from a linear mixed model. I have tried to stick as close as possible to the analysis presented in the paper, which states that "all effects were coded as fixed except block, which was treated as a random effect" and that variables were log-transformed as needed to improve normality. I also calculated strain means only on data from sympatric hosts, again following the approach in the paper.
+First, we need to calculate the appropriate strain means for each variable. I think the authors did this just by taking the average. I did this using the emmeans package, which calculates estimated marginal means from a linear mixed model. Otherwise, I have tried to stick as close as possible to the analysis presented in the paper, which states that "all effects were coded as fixed except block, which was treated as a random effect" and that variables were log-transformed as needed to improve normality. I also calculated strain means only on data from sympatric hosts, again following the approach in the paper.
 
 ```{r Genotype means, message=FALSE, warning=FALSE}
 
@@ -75,15 +236,18 @@ data$plant_biomass <- data$`Shoots mass (g)` + data$`Roots mass (g)` #Combine sh
 data_sym <- subset(data, `Host Line` != "A. heermannii" & `Host Line` != "UnH: Cla12.04" & `Host Line` != "UnL: Anz13.04")
 data_uni <- subset(data, `Host Line` == "A. heermannii" | `Host Line` == "UnH: Cla12.04" | `Host Line` == "UnL: Anz13.04")
 
+#Set dataset to use
+df <- data_sym
+
 #Fit models 
-lmm1 <- lmer(log_nodules~Population + Strain + `Host Line` + (1|Block), data=data_sym) #Total nodule number model
-#plot(lmm1)
-#summary(lmm1)
+lmm1 <- lmer(log_nodules~Population + Strain + `Host Line` + (1|Block), data=df) #Total nodule number model
+plot(lmm1)
+summary(lmm1)
 Anova(lmm1, type=3)
 df.means <- as.data.frame(emmeans(lmm1, "Strain")) #Extract line means and save them to new dataframe
 colnames(df.means) <- c("Strain", "Population", "tot_nod_lsmean", "tot_nod_SE", "tot_nod_df", "tot_nod_lowCL", "tot_nod_highCL") #Fix column names
 
-lmm2 <- lmer(log_mean_nod_biomass~Population + Strain + `Host Line` + (1|Block), data=data_sym) #Mean nodule mass model
+lmm2 <- lmer(log_mean_nod_biomass~Population + Strain + `Host Line` + (1|Block), data=df) # Mean nodule mass model
 #plot(lmm2)
 #summary(lmm2)
 Anova(lmm2, type=3)
@@ -91,7 +255,7 @@ tmp <- as.data.frame(emmeans(lmm2, "Strain")) #Extract line means and add them t
 colnames(tmp) <- c("Strain", "Population", "nod_mass_lsmean", "nod_mass_SE", "nod_mass_df", "nod_mass_lowCL", "nod_mass_highCL")
 df.means <- cbind(df.means, tmp[,3:7])
 
-lmm3 <- lmer(plant_biomass~Population + Strain  + `Host Line` + (1|Block), data=data_sym) #Plant biomass model
+lmm3 <- lmer(plant_biomass~Population + Strain  + `Host Line` + (1|Block), data=df) #Plant biomass model
 #plot(lmm3)
 #summary(lmm3)
 Anova(lmm3, type=3)
@@ -100,7 +264,7 @@ tmp <- as.data.frame(emmeans(lmm3, "Strain")) #Extract line means and add them t
 colnames(tmp) <- c("Strain", "Population", "plant_biomass_lsmean", "plant_biomass_SE", "plant_biomass_df", "plant_biomass_lowCL", "plant_biomass_highCL")
 df.means <- cbind(df.means, tmp[,3:7])
 
-lmm4 <- lmer(log(`Relative Growth`)~Population + Strain  + `Host Line` + (1|Block), data=data_sym) #Relative growth rate, log-transformed as per the paper, but note this generates NAs because there are negative values
+lmm4 <- lmer(log(`Relative Growth`)~Population + Strain  + `Host Line` + (1|Block), data=df) #Relative growth rate, log-transformed as per the paper, but note this generates NAs because there are negative values
 #plot(lmm4)
 #summary(lmm4)
 Anova(lmm4, type=3)
@@ -108,34 +272,33 @@ tmp <- as.data.frame(emmeans(lmm4, "Strain")) #Extract line means and add them t
 colnames(tmp) <- c("Strain", "Population", "RGR_lsmean", "RGR_SE", "RGR_df", "RGR_lowCL", "RGR_highCL")
 df.means <- cbind(df.means, tmp[,3:7])
 
-#Add CHR and SI values for each isolate; they are identical for all replicates of each isolate, so no need to model them
-tmp <- data_sym %>% group_by(Strain) %>% summarize(CHR = mean(`CHR local abundance`), SI = mean(`SI local abunance`))
-df.means <- merge(df.means, tmp, by="Strain")
+df.means <- merge(df.means, full.geno, by.x="Strain", by.y = "Inoculation #") #Add CHR and SI values for each isolate
+```
 
-#Calculate means and SDs for each fitness/trait measure for each population separately
-tmp <- df.means %>% group_by(Population) %>% summarize(
-  pop_mean_tot_nod=mean(tot_nod_lsmean), 
-  pop_sd_tot_nod=sd(tot_nod_lsmean),
-  pop_mean_nod_mass=mean(nod_mass_lsmean),
-  pop_sd_nod_mass=sd(nod_mass_lsmean),
-  pop_mean_CHR=mean(CHR),
-  pop_mean_SI=mean(SI),
-  pop_mean_plant_biomass=mean(plant_biomass_lsmean),
-  pop_sd_plant_biomass=sd(plant_biomass_lsmean),
-  pop_mean_RGR=mean(RGR_lsmean),
-  pop_sd_RGR=sd(RGR_lsmean)
+# Relative fitness within populations and standardize trait values
+
+Ideally, to compare across studies and fitness measures, we should calculate selection gradients in the standard way, as we would for any continuous phenotype. Here, the phenotype of interest is mutualist quality, or the amount of fitness benefit that a rhizobium strain provides to its legume host. The authors provide two measures of this trait in their dataset: plant biomass and RGR. Generally, trait values are standardized by subtracting the mean and dividing by the population standard deviation, and I did the same in my re-analysis of the data. The authors also report four fitness proxies in their dataset, namely the total number of nodules, mean nodule mass, and the two genotype frequencies CHR and SI. Fitness is typically relativized by dividing by the population mean, allowing comparisons of the strength of selection across analyses. In all cases, trait values and fitnesses are genotype means, i.e., breeding values (although this is an odd term when applied to bacteria). This is how Porter and Simms (2014) analyzed their data, when they found evidence for fitness conflict in a different legume-rhizobium mutualism, and we could thus directly compare the results. 
+
+```{r Relative fitness and standardize traits}
+
+#Calculate means and SDs for each fitness/trait measure for each population
+tmp <- df.means %>% group_by(Population.x) %>% summarize(
+  pop_mean_CHR=mean(as.numeric(`CHR genotype frequency`), na.rm=TRUE),
+  pop_mean_SI=mean(as.numeric(`SI genotype frequency`), na.rm=TRUE)
   )
-df.means <- merge(df.means, tmp, by="Population") #Merge data frames
+df.means <- merge(df.means, tmp, by="Population.x") #Merge data frames
 
-#Relativize fitness by dividing by the mean fitness
-df.means$tot_nod_std <- df.means$tot_nod_lsmean/df.means$pop_mean_tot_nod
-df.means$nod_mass_std <- df.means$nod_mass_lsmean/df.means$pop_mean_nod_mass
-df.means$CHR_std <- df.means$CHR/df.means$pop_mean_CHR
-df.means$SI_std <- df.means$SI/df.means$pop_mean_SI
+#Using global means and standard deviations for traits measured in common garden
+#Relativize fitness by dividing by the mean fitness, the global mean for fitness measures from the common garden but the pop mean 
+#for CHR and SI
+df.means$tot_nod_std <- df.means$tot_nod_lsmean/mean(df.means$tot_nod_lsmean)
+df.means$nod_mass_std <- df.means$nod_mass_lsmean/mean(df.means$nod_mass_lsmean)
+df.means$CHR_std <- as.numeric(df.means$`CHR genotype frequency`)/df.means$pop_mean_CHR
+df.means$SI_std <- as.numeric(df.means$`SI genotype frequency`)/df.means$pop_mean_SI
 
-#Standardize traits by subtracting the population mean and dividing by the population standard deviation
-df.means$plant_biomass_std <- (df.means$plant_biomass_lsmean - df.means$pop_mean_plant_biomass)/df.means$pop_sd_plant_biomass
-df.means$RGR_std <- (df.means$RGR_lsmean - df.means$pop_mean_RGR)/df.means$pop_sd_RGR
+#Standardize traits by subtracting the mean and dividing by the standard deviation
+df.means$plant_biomass_std <- (df.means$plant_biomass_lsmean - mean(df.means$plant_biomass_lsmean))/sd(df.means$plant_biomass_lsmean)
+df.means$RGR_std <- (df.means$RGR_lsmean - mean(df.means$RGR_lsmean))/sd(df.means$RGR_lsmean)
 
 ```
 
@@ -151,17 +314,16 @@ lm1 <- lm(tot_nod_std~plant_biomass_std, data=df.means) #Model
 summary(lm1)
 S1 <- paste0("S = ", round(summary(lm1)$coefficients[2,1], 3))
 pval1 <- round(summary(lm1)$coefficients[2,4],3)
+linetype <- ifelse(pval1 <= 0.05, "solid", "dashed")
 pval1 <- ifelse(pval1 <= 0.05, paste0("p = ", pval1), "ns")
 S1 <- paste0(S1, ", ", pval1)
 
-p1 <- ggplot(data=df.means, aes(y=tot_nod_std, x=plant_biomass_std))+
+p1 <- ggplot(data=df.means, aes(y=tot_nod_std, x=plant_biomass_std, color=Population.x))+
       geom_point()+
-      geom_smooth(method="lm", se=TRUE)+
+      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+
       ylab("Nodule number")+
       xlab("Plant biomass")
-
-#ggsave("fitness_correlation.png", p1, dpi=600)
 
 #Nodule mass and plant biomass
 
@@ -169,12 +331,14 @@ lm2 <- lm(nod_mass_std~plant_biomass_std, data=df.means) #Model
 summary(lm2)
 S2 <- paste0("S = ", round(summary(lm2)$coefficients[2,1], 3))
 pval2 <- round(summary(lm2)$coefficients[2,4],3)
+linetype <- ifelse(pval2 <= 0.05, "solid", "dashed")
 pval2 <- ifelse(pval2 <= 0.05, paste0("p = ", pval2), "ns")
 S2 <- paste0(S2, ", ", pval2)
 
-p2 <- ggplot(data=df.means, aes(y=nod_mass_std, x=plant_biomass_std))+
+
+p2 <- ggplot(data=df.means, aes(y=nod_mass_std, x=plant_biomass_std, color=Population.x))+
       geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype="dashed")+
+      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       ylab("Nodule mass")+
       xlab("Plant biomass")
@@ -185,29 +349,32 @@ lm3 <- lm(CHR_std~plant_biomass_std, data=df.means) #Model
 summary(lm3)
 S3 <- paste0("S = ", round(summary(lm3)$coefficients[2,1], 3))
 pval3 <- round(summary(lm3)$coefficients[2,4],3)
+linetype <- ifelse(pval3 <= 0.05, "solid", "dashed")
 pval3 <- ifelse(pval3 <= 0.05, paste0("p = ", pval3), "ns")
 S3 <- paste0(S3, ", ", pval3)
 
-p3 <- ggplot(data=df.means, aes(y=CHR_std, x=plant_biomass_std))+
+
+p3 <- ggplot(data=df.means, aes(y=CHR_std, x=plant_biomass_std, color=Population.x))+
       geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype="dashed")+
+      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       ylab("CHR")+
       xlab("Plant biomass")+
       guides(color=FALSE)
 
 #SI and plant biomass
-
+ 
 lm4 <- lm(SI_std~plant_biomass_std, data=df.means) #Model
 summary(lm4)
 S4 <- paste0("S = ", round(summary(lm4)$coefficients[2,1], 3))
 pval4 <- round(summary(lm4)$coefficients[2,4],3)
+linetype <- ifelse(pval4 <= 0.05, "solid", "dashed")
 pval4 <- ifelse(pval4 <= 0.05, paste0("p = ", pval4), "ns")
 S4 <- paste0(S4, ", ", pval4)
 
-p4 <- ggplot(data=df.means, aes(y=SI_std, x=plant_biomass_std))+
+p4 <- ggplot(data=df.means, aes(y=SI_std, x=plant_biomass_std, color=Population.x))+
       geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype="dashed")+
+      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       ylab("SI")+
       xlab("Plant biomass")
@@ -218,12 +385,13 @@ lm5 <- lm(tot_nod_std~RGR_std, data=df.means) #Model
 summary(lm5)
 S5 <- paste0("S = ", round(summary(lm5)$coefficients[2,1], 3))
 pval5 <- round(summary(lm5)$coefficients[2,4],3)
+linetype <- ifelse(pval5 <= 0.05, "solid", "dashed")
 pval5 <- ifelse(pval5 <= 0.05, paste0("p = ", pval5), "ns")
 S5 <- paste0(S5, ", ", pval5)
 
-p5 <- ggplot(data=df.means, aes(y=tot_nod_std, x=RGR_std))+
+p5 <- ggplot(data=df.means, aes(y=tot_nod_std, x=RGR_std, color=Population.x))+
       geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype="dashed")+
+      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       ylab("Nodule number")+
       xlab("RGR")
@@ -234,28 +402,31 @@ lm6 <- lm(nod_mass_std~RGR_std, data=df.means) #Model
 summary(lm6)
 S6 <- paste0("S = ", round(summary(lm6)$coefficients[2,1], 3))
 pval6 <- round(summary(lm6)$coefficients[2,4],3)
+linetype <- ifelse(pval6 <= 0.05, "solid", "dashed")
 pval6 <- ifelse(pval6 <= 0.05, paste0("p = ", pval6), "ns")
 S6 <- paste0(S6, ", ", pval6)
 
-p6 <- ggplot(data=df.means, aes(y=nod_mass_std, x=RGR_std))+
+
+p6 <- ggplot(data=df.means, aes(y=nod_mass_std, x=RGR_std, color=Population.x))+
       geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype="dashed")+
+      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       ylab("Nodule mass")+
       xlab("RGR")
 
 #CHR and RGR
-
-lm7 <- lm(CHR_std~RGR_std, data=df.means) #Model
+lm7 <- lm(CHR_std~RGR_std, data=df.means)
 summary(lm7)
 S7 <- paste0("S = ", round(summary(lm7)$coefficients[2,1], 3))
 pval7 <- round(summary(lm7)$coefficients[2,4],3)
+linetype <- ifelse(pval7 <= 0.05, "solid", "dashed")
 pval7 <- ifelse(pval7 <= 0.05, paste0("p = ", pval7), "ns")
 S7 <- paste0(S7, ", ", pval7)
 
-p7 <- ggplot(data=df.means, aes(y=CHR_std, x=RGR_std))+
+
+p7 <- ggplot(data=df.means, aes(y=CHR_std, x=RGR_std, color=Population.x))+
       geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype="dashed")+
+      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       ylab("CHR")+
       xlab("RGR")
@@ -266,12 +437,14 @@ lm8 <- lm(SI_std~RGR_std, data=df.means) #Model
 summary(lm8)
 S8 <- paste0("S = ", round(summary(lm8)$coefficients[2,1], 3))
 pval8 <- round(summary(lm8)$coefficients[2,4],3)
+linetype <- ifelse(pval8 <= 0.05, "solid", "dashed")
 pval8 <- ifelse(pval8 <= 0.05, paste0("p = ", pval8), "ns")
 S8 <- paste0(S8, ", ", pval8)
 
-p8 <- ggplot(data=df.means, aes(y=SI_std, x=RGR_std))+
+
+p8 <- ggplot(data=df.means, aes(y=SI_std, x=RGR_std, color=Population.x))+
       geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype="dashed")+
+      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
       geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
       ylab("SI")+
       xlab("RGR")
@@ -283,101 +456,54 @@ After standardizing relative growth within each population and relativizing all 
 
 ```{r Visualize selection gradients, using RGR, warning=FALSE, message=FALSE, dpi=600, fig.height=6}
 
-plot_grid(p5,p6,p7,p8, labels=c(S5, S6, S7, S8), hjust = c(-1.7, -1, -1, -1), scale = 0.9)
+plot_grid(p5,p6,p7,p8, labels=c(S5, S6, S7, S8), hjust=c(-1,-1,-0.76,-0.76), scale = 0.9)
 
 ```
 
 # Selection on symbiont quality, measured as plant biomass
 
-Performing the same analysis but measuring symbiont quality using plant biomass, in the more traditional fashion, shows only one statistically significant selection gradient: the regression of nodule number on plant biomass. And the relationship is positive, suggesting fitness alignment, not conflict, between partners. Solid lines show significant selection gradients. Dashed lines show non-signficiant selection gradients. 
+Performing the same analysis but measuring symbiont quality using plant biomass, in the more traditional fashion, shows all non-significant relationships too. Again, dashed lines show non-signficiant selection gradients. 
 
 ```{r Visualize selection gradients, using plant biomass, message=FALSE, dpi=600, fig.height=6, warning=FALSE}
 
-plot_grid(p1,p2,p3,p4, labels=c(S1, S2, S3, S4), hjust = c(-0.8, -1, -1, -1), scale=0.9)
+plot_grid(p1,p2,p3,p4, labels=c(S1, S2, S3, S4), hjust = c(-1,-1,-0.76,-0.84), scale=0.9)
           
 ```
 
-# Why do different fitness measures give different answers?
+# Re-create original analyses
+
+```{r Original analyses}
+
+original <- df %>% group_by(Population, Strain) %>% summarize(log_mean_RGR = mean(log(as.numeric(`Relative Growth`))))
+original <- merge(original, df.means, by="Strain")
+
+lm.orig1 <- lm(log_mean_RGR~as.numeric(`CHR genotype frequency`), data=original)
+summary(lm.orig1)
+
+orig.fig3a <- ggplot(data=original, aes(x=log_mean_RGR, y=as.numeric(`CHR genotype frequency`)))+
+              geom_point()
+orig.fig3a
 
 
-```{r Correlations among fitness proxies, , message=FALSE, dpi=600, fig.height=6, warning=FALSE}
+lm.orig2 <- lm(log_mean_RGR~as.numeric(`SI genotype frequency`), data=original)
+summary(lm.orig2)
 
-#Correlations among rhizobium fitness proxies
-lm9 <- lm(SI_std~CHR_std, data=df.means) #Model
-summary(lm9)
+orig.fig3b <- ggplot(data=original, aes(x=log_mean_RGR, y=as.numeric(`SI genotype frequency`)))+
+              geom_point()
+orig.fig3b
 
-p9 <- ggplot(data=df.means, aes(y=SI_std, x=CHR_std))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE)+
-      xlab("CHR")+
-      ylab("SI")+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
+lm.orig1 <- lm(log_mean_RGR~as.numeric(`CHR genotype frequency`), data=subset(original, Population != "YUC"))
+summary(lm.orig1)
 
-lm10 <- lm(SI_std~nod_mass_std, data=df.means) #Model
-summary(lm10)
-
-p10 <- ggplot(data=df.means, aes(y=SI_std, x=nod_mass_std))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE)+
-      xlab("Nodule mass")+
-      ylab("SI")+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-
-lm11 <- lm(SI_std~tot_nod_std, data=df.means) #Model
-summary(lm11)
-
-p11 <- ggplot(data=df.means, aes(y=SI_std, x=tot_nod_std))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE)+
-      xlab("Nodule number")+
-      ylab("SI")+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-
-lm12 <- lm(CHR_std~nod_mass_std, data=df.means) #Model
-summary(lm12)
-
-p12 <- ggplot(data=df.means, aes(y=CHR_std, x=nod_mass_std))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE)+
-      xlab("Nodule mass")+
-      ylab("CHR")+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-
-lm13 <- lm(CHR_std~tot_nod_std, data=df.means) #Model
-summary(lm13)
-
-p13 <- ggplot(data=df.means, aes(y=CHR_std, x=tot_nod_std))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE)+
-      xlab("Nodule number")+
-      ylab("CHR")+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
-
-lm14 <- lm(tot_nod_std~nod_mass_std, data=df.means) #Model
-summary(lm14)
-
-p14 <- ggplot(data=df.means, aes(y=tot_nod_std, x=nod_mass_std))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE)+
-      xlab("Nodule mass")+
-      ylab("Nodule number")+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)
+orig.fig3a <- ggplot(data=original, aes(x=log_mean_RGR, y=as.numeric(`CHR genotype frequency`)))+
+              geom_point()
+orig.fig3a
 
 
-plot_grid(p9, p10, p11, p12, p13, p14)
+lm.orig2 <- lm(log_mean_RGR~as.numeric(`SI genotype frequency`), data=subset(original, Population != "YUC"))
+summary(lm.orig2)
 
-#Corrlation between plant fitness proxies
-
-lm15 <- lm(RGR_std~plant_biomass_std, data=df.means)
-summary(lm15)
-
-p15 <- ggplot(data=df.means, aes(y=RGR_std, x=plant_biomass_std))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE)+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
-      xlab("Plant biomass")+
-      ylab("RGR")
-p15
-
-```
+orig.fig3b <- ggplot(data=original, aes(x=log_mean_RGR, y=as.numeric(`SI genotype frequency`)))+
+              geom_point()
+orig.fig3b
 
