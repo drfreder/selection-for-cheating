@@ -87,15 +87,16 @@ df <- merge(table_S2, new.table2[ ,2:5], by="Strain")
 
 ```
 
-# How many nodules and plants were sampled per site?
+## How many nodules and plants were sampled per site?
 The sampling is uneven, with few plants sampled in ANZ and YUC.
 
 ```{r Sampling, message=FALSE, warning=FALSE}
 colnames(new.table) <- c("Plant Collection Site", "Locus", "Nodules sampled (no.)", "Plants sampled (no.)")
+new.table$Locus <- gsub("_haplotype", "", new.table$Locus)
 kable(new.table)
 ```
 
-# Plot sampling of CHR and SI frequencies 
+## Plot sampling of CHR and SI frequencies 
 
 ```{r Data distributions, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
 
@@ -117,9 +118,9 @@ fig1
 
 ```
 
-# Re-create original Fig. 5 from paper
+## Re-create original Fig. 5 from paper
 
-```{r Fig3}
+```{r Fig5, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
 
 model3 <- lm(`CHR genotype frequency`~log10(mean_RGR), data=df)
 summary(model3) #Numbers don't match paper, but qualitative pattern is the same
@@ -136,13 +137,13 @@ orig.fig5
 
 ```
 
-# Relative fitness within populations 
+## Relative fitness within populations 
 
 Ideally, to compare across studies, fitness measures, and traits, we should calculate selection gradients in the standard way, as we would for any continuous phenotype. Normally, fitness is relativized by dividing by population mean fitness, and traits are standardized by subtracting the mean and dividing by the standard deviation. This allows comparisons of the strength of selection across analyses because everything is on a common scale. 
 
 Here, I first use the same strain means for relative growth as above, but also then standardize them by substracting the mean and dividing by the SD. Either way, the relationship between genotype frequency and symbiotic effectiveness is non-significant once fitness is relativized within each population.
 
-```{r Relative fitness and standardize traits}
+```{r Relative fitness and standardize traits, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
 
 #Calculate mean fitness for each population
 tmp <- df %>% group_by(Population) %>% summarize(pop_mean_CHR=mean(as.numeric(`CHR genotype frequency`), na.rm=TRUE), pop_mean_SI=mean(as.numeric(`SI genotype frequency`), na.rm=TRUE))
@@ -176,13 +177,13 @@ new.Fig5
 
 ```
 
-# Test for outliers
+## Test for outliers
 
 ```{r Outliers, message=FALSE, warning=FALSE}
 
 dixon.test(as.numeric(df$`CHR genotype frequency`)) #Test for outliers in CHR genotype frequency 
 
-#Exclude strain 156, which is a significant outlier for CHR genotype frequency
+#Exclude strain 156, which is a significant outlier for CHR genotype frequency and the same SI haplotype as 155
 
 model9 <- lm(`CHR genotype frequency`~log10(mean_RGR), data=subset(df, Strain != "156"))
 summary(model9) #Non-significant

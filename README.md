@@ -65,32 +65,33 @@ df <- merge(table_S2, new.table2[ ,2:5], by="Strain")
 ```
 
 How many nodules and plants were sampled per site?
-==================================================
+--------------------------------------------------
 
 The sampling is uneven, with few plants sampled in ANZ and YUC.
 
 ``` r
 colnames(new.table) <- c("Plant Collection Site", "Locus", "Nodules sampled (no.)", "Plants sampled (no.)")
+new.table$Locus <- gsub("_haplotype", "", new.table$Locus)
 kable(new.table)
 ```
 
-| Plant Collection Site | Locus          |  Nodules sampled (no.)|  Plants sampled (no.)|
-|:----------------------|:---------------|----------------------:|---------------------:|
-| ANZ                   | SI\_haplotype  |                     43|                     4|
-| ANZ                   | CHR\_haplotype |                     44|                     4|
-| BMR                   | SI\_haplotype  |                    108|                    16|
-| BMR                   | CHR\_haplotype |                    137|                    16|
-| CLA                   | SI\_haplotype  |                     68|                    20|
-| CLA                   | CHR\_haplotype |                     68|                    20|
-| GRI                   | SI\_haplotype  |                      4|                     4|
-| GRI                   | CHR\_haplotype |                     68|                    18|
-| UCR                   | SI\_haplotype  |                     17|                     5|
-| UCR                   | CHR\_haplotype |                     88|                    31|
-| YUC                   | SI\_haplotype  |                     15|                     2|
-| YUC                   | CHR\_haplotype |                     39|                     7|
+| Plant Collection Site | Locus |  Nodules sampled (no.)|  Plants sampled (no.)|
+|:----------------------|:------|----------------------:|---------------------:|
+| ANZ                   | SI    |                     43|                     4|
+| ANZ                   | CHR   |                     44|                     4|
+| BMR                   | SI    |                    108|                    16|
+| BMR                   | CHR   |                    137|                    16|
+| CLA                   | SI    |                     68|                    20|
+| CLA                   | CHR   |                     68|                    20|
+| GRI                   | SI    |                      4|                     4|
+| GRI                   | CHR   |                     68|                    18|
+| UCR                   | SI    |                     17|                     5|
+| UCR                   | CHR   |                     88|                    31|
+| YUC                   | SI    |                     15|                     2|
+| YUC                   | CHR   |                     39|                     7|
 
 Plot sampling of CHR and SI frequencies
-=======================================
+---------------------------------------
 
 ``` r
 #Model relationship between CHR frequency and number of plants sampled
@@ -157,7 +158,7 @@ fig1
 ![](README_files/figure-markdown_github/Data%20distributions-1.png)
 
 Re-create original Fig. 5 from paper
-====================================
+------------------------------------
 
 ``` r
 model3 <- lm(`CHR genotype frequency`~log10(mean_RGR), data=df)
@@ -215,28 +216,13 @@ summary(model4) #Numbers don't match paper, but qualitative pattern is the same
 orig.fig5.SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=mean_RGR, color=Population)) +geom_smooth(method="lm", se=FALSE, color=1)+geom_point()+xlab("Symbiotic effectiveness")+ylab("SI genotype frequency")+scale_x_log10()+ geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)
 
 orig.fig5 <-plot_grid(orig.fig5.CHR, orig.fig5.SI, nrow=2, labels="auto")
-```
-
-    ## Warning: Removed 4 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 4 rows containing missing values (geom_point).
-
-    ## Warning: Removed 4 rows containing missing values (geom_text).
-
-    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 5 rows containing missing values (geom_point).
-
-    ## Warning: Removed 5 rows containing missing values (geom_text).
-
-``` r
 orig.fig5
 ```
 
-![](README_files/figure-markdown_github/Fig3-1.png)
+![](README_files/figure-markdown_github/Fig5-1.png)
 
 Relative fitness within populations
-===================================
+-----------------------------------
 
 Ideally, to compare across studies, fitness measures, and traits, we should calculate selection gradients in the standard way, as we would for any continuous phenotype. Normally, fitness is relativized by dividing by population mean fitness, and traits are standardized by subtracting the mean and dividing by the standard deviation. This allows comparisons of the strength of selection across analyses because everything is on a common scale.
 
@@ -355,28 +341,13 @@ new.Fig5.SI.unstandardized <- ggplot(data=df, aes(y=SI_std, x=mean_RGR, color=Po
 new.Fig5.CHR.unstandardized <- ggplot(data=df, aes(y=CHR_std, x=mean_RGR, color=Population))+ geom_point()+geom_smooth(method="lm", se=FALSE, linetype="dashed", color=1)+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+ylab("CHR genotype frequency")+xlab("Symbiotic effectiveness")+scale_x_log10()
 
 new.Fig5 <- plot_grid(new.Fig5.CHR.unstandardized, new.Fig5.SI.unstandardized, nrow=2, labels="auto")
-```
-
-    ## Warning: Removed 4 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 4 rows containing missing values (geom_point).
-
-    ## Warning: Removed 4 rows containing missing values (geom_text).
-
-    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 5 rows containing missing values (geom_point).
-
-    ## Warning: Removed 5 rows containing missing values (geom_text).
-
-``` r
 new.Fig5
 ```
 
 ![](README_files/figure-markdown_github/Relative%20fitness%20and%20standardize%20traits-1.png)
 
 Test for outliers
-=================
+-----------------
 
 ``` r
 dixon.test(as.numeric(df$`CHR genotype frequency`)) #Test for outliers in CHR genotype frequency 
@@ -390,7 +361,7 @@ dixon.test(as.numeric(df$`CHR genotype frequency`)) #Test for outliers in CHR ge
     ## alternative hypothesis: highest value 0.6154 is an outlier
 
 ``` r
-#Exclude strain 156, which is a significant outlier for CHR genotype frequency
+#Exclude strain 156, which is a significant outlier for CHR genotype frequency and the same SI haplotype as 155
 
 model9 <- lm(`CHR genotype frequency`~log10(mean_RGR), data=subset(df, Strain != "156"))
 summary(model9) #Non-significant
