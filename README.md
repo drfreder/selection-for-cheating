@@ -32,9 +32,6 @@ data$`Roots mass (g)` <- as.numeric(data$`Roots mass (g)`)
 data$`Relative Growth` <- as.numeric(data$`Relative Growth`)
 data$Block <- as.factor(data$Block)
 
-#Ignore strain 156, just for interest sake
-#data <- subset(data, Strain != 156)
-
 gf.data <- read_csv("Table_S1.csv") #Read in genotype frequency data
 gf.data$SI <- paste0(gf.data$`nodZ haplotype`, gf.data$`nolL haplotype`) #Concatenate SI haplotypes, as per paper
 gf.data$CHR <- paste0(gf.data$`glnII Haplotype`, gf.data$`recA Haplotype`) #Concatenate CHR haplotypes, as per paper
@@ -187,13 +184,9 @@ Plot sampling of CHR and SI frequencies
 =======================================
 
 ``` r
-lm1 <- lm(as.numeric(`CHR genotype frequency`)~n_CHR_freq, data=full.geno)
-```
-
-    ## Warning in eval(predvars, data, env): NAs introduced by coercion
-
-``` r
-summary(lm1)
+#Model relationship between CHR frequency and number of plants sampled
+model1 <- lm(as.numeric(`CHR genotype frequency`)~n_CHR_freq, data=full.geno)
+summary(model1)
 ```
 
     ## 
@@ -224,33 +217,10 @@ CHR <- ggplot(data=full.geno, aes(y=as.numeric(`CHR genotype frequency`), x=n_CH
         xlab("Plants sampled (no.)")+
         ylab("CHR genotype frequency")+
         geom_text(aes(label=`Inoculation #`),hjust=0, vjust=0, size=2.5)
-CHR
-```
 
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning: Removed 4 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 4 rows containing missing values (geom_point).
-
-    ## Warning: Removed 4 rows containing missing values (geom_text).
-
-![](README_files/figure-markdown_github/Data%20distributions-1.png)
-
-``` r
-lm2 <- lm(as.numeric(`SI genotype frequency`)~n_SI_freq, data=full.geno)
-```
-
-    ## Warning in eval(predvars, data, env): NAs introduced by coercion
-
-``` r
-summary(lm2)
+#Model relationship between SI frequency and number of plants sampled
+model2 <- lm(as.numeric(`SI genotype frequency`)~n_SI_freq, data=full.geno)
+summary(model2)
 ```
 
     ## 
@@ -283,37 +253,6 @@ SI <- ggplot(data=full.geno, aes(y=as.numeric(`SI genotype frequency`), x=as.num
         geom_text(aes(label=`Inoculation #`),hjust=0, vjust=0, size=2.5)
 
 fig1 <- plot_grid(CHR, SI, nrow=2, labels="auto")
-```
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning: Removed 4 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 4 rows containing missing values (geom_point).
-
-    ## Warning: Removed 4 rows containing missing values (geom_text).
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning: Removed 7 rows containing non-finite values (stat_smooth).
-
-    ## Warning: Removed 7 rows containing missing values (geom_point).
-
-    ## Warning: Removed 7 rows containing missing values (geom_text).
-
-``` r
 save_plot("Fig1.png", fig1, base_width=8, base_height=8)
 ```
 
@@ -875,197 +814,78 @@ plot_grid(p1,p2,p3,p4, labels=c(S1, S2, S3, S4), hjust = c(-1,-1,-0.76,-0.84), s
 
 ![](README_files/figure-markdown_github/Visualize%20selection%20gradients,%20using%20plant%20biomass-1.png)
 
-Re-create original analyses
-===========================
+Outliers
+========
 
 ``` r
-original <- df %>% group_by(Population, Strain) %>% summarize(log_mean_RGR = mean(log(as.numeric(`Relative Growth`))))
-```
-
-    ## Warning in log(as.numeric(`Relative Growth`)): NaNs produced
-
-    ## Warning in log(as.numeric(`Relative Growth`)): NaNs produced
-
-    ## Warning in log(as.numeric(`Relative Growth`)): NaNs produced
-
-    ## Warning in log(as.numeric(`Relative Growth`)): NaNs produced
-
-    ## Warning in log(as.numeric(`Relative Growth`)): NaNs produced
-
-    ## Warning in log(as.numeric(`Relative Growth`)): NaNs produced
-
-``` r
+original <- df %>% group_by(Population, Strain) %>% summarize(mean_RGR = mean(`Relative Growth`))
 original <- merge(original, df.means, by="Strain")
 
-lm.orig1 <- lm(log_mean_RGR~as.numeric(`CHR genotype frequency`), data=original)
-summary(lm.orig1)
+dixon.test(as.numeric(original$`CHR genotype frequency`))
+```
+
+    ## 
+    ##  Dixon test for outliers
+    ## 
+    ## data:  as.numeric(original$`CHR genotype frequency`)
+    ## Q = 0.63675, p-value < 2.2e-16
+    ## alternative hypothesis: highest value 0.6154 is an outlier
+
+``` r
+#Exclude strain 156
+
+model4 <- lm(log10(mean_RGR)~as.numeric(`CHR genotype frequency`), data=subset(original, Strain != "156"))
+summary(model4)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = log_mean_RGR ~ as.numeric(`CHR genotype frequency`), 
-    ##     data = original)
-    ## 
-    ## Residuals:
-    ##     Min      1Q  Median      3Q     Max 
-    ## -1.0192 -0.3374  0.0497  0.3109  0.7403 
-    ## 
-    ## Coefficients:
-    ##                                      Estimate Std. Error t value Pr(>|t|)
-    ## (Intercept)                            6.6881     0.1242  53.841   <2e-16
-    ## as.numeric(`CHR genotype frequency`)  -1.4293     0.6420  -2.226    0.039
-    ##                                         
-    ## (Intercept)                          ***
-    ## as.numeric(`CHR genotype frequency`) *  
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-    ## 
-    ## Residual standard error: 0.4748 on 18 degrees of freedom
-    ##   (6 observations deleted due to missingness)
-    ## Multiple R-squared:  0.2159, Adjusted R-squared:  0.1724 
-    ## F-statistic: 4.957 on 1 and 18 DF,  p-value: 0.03899
-
-``` r
-orig.fig3a <- ggplot(data=original, aes(x=log_mean_RGR, y=as.numeric(`CHR genotype frequency`)))+
-              geom_point()
-orig.fig3a
-```
-
-    ## Warning: Removed 6 rows containing missing values (geom_point).
-
-![](README_files/figure-markdown_github/Original%20analyses-1.png)
-
-``` r
-lm.orig2 <- lm(log_mean_RGR~as.numeric(`SI genotype frequency`), data=original)
-```
-
-    ## Warning in eval(predvars, data, env): NAs introduced by coercion
-
-``` r
-summary(lm.orig2)
-```
-
-    ## 
-    ## Call:
-    ## lm(formula = log_mean_RGR ~ as.numeric(`SI genotype frequency`), 
-    ##     data = original)
+    ## lm(formula = log10(mean_RGR) ~ as.numeric(`CHR genotype frequency`), 
+    ##     data = subset(original, Strain != "156"))
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -1.06441 -0.27457  0.04902  0.38369  0.66552 
-    ## 
-    ## Coefficients:
-    ##                                     Estimate Std. Error t value Pr(>|t|)
-    ## (Intercept)                            6.763      0.194  34.862   <2e-16
-    ## as.numeric(`SI genotype frequency`)   -1.655      1.301  -1.272     0.22
-    ##                                        
-    ## (Intercept)                         ***
-    ## as.numeric(`SI genotype frequency`)    
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-    ## 
-    ## Residual standard error: 0.5166 on 17 degrees of freedom
-    ##   (7 observations deleted due to missingness)
-    ## Multiple R-squared:  0.08692,    Adjusted R-squared:  0.03321 
-    ## F-statistic: 1.618 on 1 and 17 DF,  p-value: 0.2205
-
-``` r
-orig.fig3b <- ggplot(data=original, aes(x=log_mean_RGR, y=as.numeric(`SI genotype frequency`)))+
-              geom_point()
-orig.fig3b
-```
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning: Removed 7 rows containing missing values (geom_point).
-
-![](README_files/figure-markdown_github/Original%20analyses-2.png)
-
-``` r
-lm.orig1 <- lm(log_mean_RGR~as.numeric(`CHR genotype frequency`), data=subset(original, Population != "YUC"))
-summary(lm.orig1)
-```
-
-    ## 
-    ## Call:
-    ## lm(formula = log_mean_RGR ~ as.numeric(`CHR genotype frequency`), 
-    ##     data = subset(original, Population != "YUC"))
-    ## 
-    ## Residuals:
-    ##      Min       1Q   Median       3Q      Max 
-    ## -0.98094 -0.31051  0.07014  0.30382  0.63437 
+    ## -0.94229 -0.05045  0.00776  0.12174  0.35226 
     ## 
     ## Coefficients:
     ##                                      Estimate Std. Error t value Pr(>|t|)
-    ## (Intercept)                            6.6361     0.1241   53.48   <2e-16
-    ## as.numeric(`CHR genotype frequency`)  -0.2300     0.8851   -0.26    0.798
+    ## (Intercept)                           2.96597    0.05975  49.642   <2e-16
+    ## as.numeric(`CHR genotype frequency`) -0.65652    0.45470  -1.444    0.162
     ##                                         
     ## (Intercept)                          ***
     ## as.numeric(`CHR genotype frequency`)    
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.4555 on 16 degrees of freedom
-    ##   (4 observations deleted due to missingness)
-    ## Multiple R-squared:  0.004202,   Adjusted R-squared:  -0.05804 
-    ## F-statistic: 0.06751 on 1 and 16 DF,  p-value: 0.7983
+    ## Residual standard error: 0.2505 on 23 degrees of freedom
+    ## Multiple R-squared:  0.08311,    Adjusted R-squared:  0.04324 
+    ## F-statistic: 2.085 on 1 and 23 DF,  p-value: 0.1623
 
 ``` r
-orig.fig3a <- ggplot(data=original, aes(x=log_mean_RGR, y=as.numeric(`CHR genotype frequency`)))+
-              geom_point()
-orig.fig3a
-```
-
-    ## Warning: Removed 6 rows containing missing values (geom_point).
-
-![](README_files/figure-markdown_github/Original%20analyses-3.png)
-
-``` r
-lm.orig2 <- lm(log_mean_RGR~as.numeric(`SI genotype frequency`), data=subset(original, Population != "YUC"))
-```
-
-    ## Warning in eval(predvars, data, env): NAs introduced by coercion
-
-``` r
-summary(lm.orig2)
+model5 <- lm(log10(mean_RGR)~as.numeric(`SI genotype frequency`), data=subset(original, Strain != "156"))
+summary(model5)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = log_mean_RGR ~ as.numeric(`SI genotype frequency`), 
-    ##     data = subset(original, Population != "YUC"))
+    ## lm(formula = log10(mean_RGR) ~ as.numeric(`SI genotype frequency`), 
+    ##     data = subset(original, Strain != "156"))
     ## 
     ## Residuals:
-    ##     Min      1Q  Median      3Q     Max 
-    ## -1.0014 -0.3476  0.1017  0.3093  0.6146 
+    ##      Min       1Q   Median       3Q      Max 
+    ## -0.90449 -0.07436  0.03245  0.14579  0.30519 
     ## 
     ## Coefficients:
     ##                                     Estimate Std. Error t value Pr(>|t|)
-    ## (Intercept)                          6.65756    0.17417  38.225  2.3e-16
-    ## as.numeric(`SI genotype frequency`) -0.06913    1.32289  -0.052    0.959
+    ## (Intercept)                          3.03152    0.08027  37.769   <2e-16
+    ## as.numeric(`SI genotype frequency`) -0.89209    0.49620  -1.798   0.0859
     ##                                        
     ## (Intercept)                         ***
-    ## as.numeric(`SI genotype frequency`)    
+    ## as.numeric(`SI genotype frequency`) .  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.4508 on 15 degrees of freedom
-    ##   (5 observations deleted due to missingness)
-    ## Multiple R-squared:  0.000182,   Adjusted R-squared:  -0.06647 
-    ## F-statistic: 0.002731 on 1 and 15 DF,  p-value: 0.959
-
-``` r
-orig.fig3b <- ggplot(data=original, aes(x=log_mean_RGR, y=as.numeric(`SI genotype frequency`)))+
-              geom_point()
-orig.fig3b
-```
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning in FUN(X[[i]], ...): NAs introduced by coercion
-
-    ## Warning: Removed 7 rows containing missing values (geom_point).
-
-![](README_files/figure-markdown_github/Original%20analyses-4.png)
+    ## Residual standard error: 0.2497 on 22 degrees of freedom
+    ##   (1 observation deleted due to missingness)
+    ## Multiple R-squared:  0.1281, Adjusted R-squared:  0.08847 
+    ## F-statistic: 3.232 on 1 and 22 DF,  p-value: 0.08594
