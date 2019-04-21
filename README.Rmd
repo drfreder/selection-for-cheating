@@ -91,7 +91,7 @@ df <- merge(table_S2, new.table2[ ,2:5], by="Strain")
 The sampling is uneven, with few plants sampled in ANZ and YUC.
 
 ```{r Sampling, message=FALSE, warning=FALSE}
-colnames(new.table) <- c("Plant Collection Site", "Locus", "Nodules sampled (no.)", "Plants sampled (no.)")
+colnames(new.table) <- c("Population", "Locus", "Nodules sampled (no.)", "Plants sampled (no.)")
 new.table$Locus <- gsub("_haplotype", "", new.table$Locus)
 kable(new.table)
 ```

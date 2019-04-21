@@ -70,25 +70,25 @@ How many nodules and plants were sampled per site?
 The sampling is uneven, with few plants sampled in ANZ and YUC.
 
 ``` r
-colnames(new.table) <- c("Plant Collection Site", "Locus", "Nodules sampled (no.)", "Plants sampled (no.)")
+colnames(new.table) <- c("Population", "Locus", "Nodules sampled (no.)", "Plants sampled (no.)")
 new.table$Locus <- gsub("_haplotype", "", new.table$Locus)
 kable(new.table)
 ```
 
-| Plant Collection Site | Locus |  Nodules sampled (no.)|  Plants sampled (no.)|
-|:----------------------|:------|----------------------:|---------------------:|
-| ANZ                   | SI    |                     43|                     4|
-| ANZ                   | CHR   |                     44|                     4|
-| BMR                   | SI    |                    108|                    16|
-| BMR                   | CHR   |                    137|                    16|
-| CLA                   | SI    |                     68|                    20|
-| CLA                   | CHR   |                     68|                    20|
-| GRI                   | SI    |                      4|                     4|
-| GRI                   | CHR   |                     68|                    18|
-| UCR                   | SI    |                     17|                     5|
-| UCR                   | CHR   |                     88|                    31|
-| YUC                   | SI    |                     15|                     2|
-| YUC                   | CHR   |                     39|                     7|
+| Population | Locus |  Nodules sampled (no.)|  Plants sampled (no.)|
+|:-----------|:------|----------------------:|---------------------:|
+| ANZ        | SI    |                     43|                     4|
+| ANZ        | CHR   |                     44|                     4|
+| BMR        | SI    |                    108|                    16|
+| BMR        | CHR   |                    137|                    16|
+| CLA        | SI    |                     68|                    20|
+| CLA        | CHR   |                     68|                    20|
+| GRI        | SI    |                      4|                     4|
+| GRI        | CHR   |                     68|                    18|
+| UCR        | SI    |                     17|                     5|
+| UCR        | CHR   |                     88|                    31|
+| YUC        | SI    |                     15|                     2|
+| YUC        | CHR   |                     39|                     7|
 
 Plot sampling of CHR and SI frequencies
 ---------------------------------------
