@@ -1,7 +1,7 @@
 Are rhizobia under selection to cheat?
 ================
 Megan Frederickson
-2019-04-20
+2019-04-21
 
 Is there fitness conflict between legumes and rhizobia?
 -------------------------------------------------------
@@ -12,146 +12,56 @@ Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Ad
 
 The authors make the case that in their legume-rhizobium study system, the rhizobia are selected to cheat. In other words, they report a negative correlation between legume and rhizobium fitnesses.
 
-Here, I re-analyze their data using a standard genetic selection analysis approach, in which relativized fitness is regressed against standardized family-mean trait values.
+Here, I re-analyze their data to explore how rhizobia were sampled across populations and how rhizobium fitness was measured in nature.
 
 I downloaded the data from Dryad on April 16, 2019. The citation for the data package is:
 
 Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Data from: Interspecific conflict and the evolution of ineffective rhizobia. Dryad Digital Repository. <https://doi.org/10.5061/dryad.cr65269>
 
-First we need to read in the data, which is in three different tables in the Dryad package, and wrangle it in to a usable form.
+First we need to read in the data, which is in three different tables in the Dryad package.
 
 ``` r
-data <- read_csv("Table_S4.csv") #Read in single inoculation experiment data
-data$Strain <- as.factor(data$Strain) #Factors are factors and numbers are numbers
-data$`Host Line` <- as.factor(data$`Host Line`)
-data$Population <- as.factor(data$Population)
-data$`Total nodules` <- as.numeric(data$`Total nodules`)
-data$`Mean individual  nodule biomass (mg)` <- as.numeric(data$`Mean individual  nodule biomass (mg)`)
-data$`Shoots mass (g)` <- as.numeric(data$`Shoots mass (g)`)
-data$`Roots mass (g)` <- as.numeric(data$`Roots mass (g)`)
-data$`Relative Growth` <- as.numeric(data$`Relative Growth`)
-data$Block <- as.factor(data$Block)
-
-gf.data <- read_csv("Table_S1.csv") #Read in genotype frequency data
-gf.data$SI <- paste0(gf.data$`nodZ haplotype`, gf.data$`nolL haplotype`) #Concatenate SI haplotypes, as per paper
-gf.data$CHR <- paste0(gf.data$`glnII Haplotype`, gf.data$`recA Haplotype`) #Concatenate CHR haplotypes, as per paper
-gf.data <- subset(gf.data, `nolL haplotype` != "X") #Remove Xs, which are failures to amplify/sequence, as per Dryad data description
-gf.data$plant <- gsub('_.*', "", gf.data$`Full Strain name`) #Make a column for unique plant ids
-gf.data$plant <- toupper(gsub('R.*', "", gf.data$plant))  #Make plant ids upper case
-gf.data <- gf.data[,c(1, 10, 2:9)] #Reorder columns
-gf.data.long <- gather(gf.data, locus, haplotype, `glnII Haplotype`:CHR, factor_key=TRUE) #Make wide data into long format
-gf.data.long <- subset(gf.data.long, haplotype != "n/an/a") #Remove NAs
-gf.data.long <- subset(gf.data.long, locus == "SI" | locus == "CHR") #Prune to just CHR and SI haplotypes
-
-#Summarize frequencies per plant
-sum.gf <- gf.data.long %>% group_by(plant, `Plant Collection Site`, Year, locus, haplotype) %>% summarize(n = n())
-tmp <- gf.data %>% group_by(plant) %>% summarize(total_n=n())
-sum.gf <- merge(sum.gf, tmp, by="plant")
-
-#Split by locus
-sum.CHR <- subset(sum.gf, locus == "CHR")
-sum.SI <- subset(sum.gf, locus == "SI")
-
-#Make lists of which haplotypes are in each site
-chr.haplos <- sum.CHR %>% group_by(`Plant Collection Site`, haplotype) %>% summarize(n=n())
-SI.haplos <- sum.SI %>% group_by(`Plant Collection Site`, haplotype) %>% summarize(n=n())
-
-#Initialize two empty dataframes, one for CHR and one for SI, to put all the data in 
-full.chr <- data.frame(plant = character(),
-                 `Plant Collection Site` = character(), 
-                 Year = character(),
-                 locus = character(),
-                 haplotype = character(),
-                 n = character(),
-                 total_n = character(),
-                 stringsAsFactors=FALSE) 
-
-full.SI <- data.frame(plant = character(),
-                 `Plant Collection Site` = character(), 
-                 Year = character(),
-                 locus = character(),
-                 haplotype = character(),
-                 n = character(),
-                 total_n = character(),
-                 stringsAsFactors=FALSE) 
-
-#Add zeros for strains present in a population but not sampled in a particular plant
-for(i in 1:length(unique(sum.CHR$plant))){
+table_S4 <- read_csv("Table_S4.csv", col_types = cols(Strain = col_factor(levels = c("132", "133", "134", "135", "136", "137", "138", "139", "140", "141", "142", "143", "144", "145", "146", "147", "148", "149", "150", "151", "152", "153", "154", "155", "156", "157", "158", "159", "160", "161", "control")), `Host Line` = col_factor(levels = c("BMR01.03", "BMR07.03", "UnH: Cla12.04", "UnL: Anz13.04", "A. heermannii", "Gri01.01", "Gri01.13", "Cla10.01", "Cla01.04", "UCR02.07", "UCR09.05", "Yuc02.07", "Yuc02.01", "Anz11.01", "Anz10.01")), Block = col_factor(levels = c("1", "2", "3", "4", "5")), `CHR local abundance` = col_number(), `Mean individual  nodule biomass (mg)` = col_number(), `Mineral N (ppm)` = col_number(), `Plant #` = col_number(), Population = col_factor(levels = c("ANZ",  "BMR", "CLA", "GRI", "UCR", "YUC")), `Relative Growth` = col_number(), `Roots mass (g)` = col_number(), `Shoots mass (g)` = col_number(), `Total N (%)` = col_number(), `Total nodules` = col_number()))
+table_S4 <- subset(table_S4, `Shoots mass (g)` != "DEAD") #Exclude dead plants
+table_S4 <- subset(table_S4, Strain != "control") #Exclude inoculated controls
   
-  plant.id = as.character(unique(sum.CHR$plant)[i])
-  tmp2 <- subset(sum.CHR, plant == plant.id)
-  tmp3 <- chr.haplos[chr.haplos$`Plant Collection Site` == tmp2[1,2], ]
-  tmp4 <- data.frame(matrix(ncol = 7, nrow = length(setdiff(tmp3$haplotype, tmp2$haplotype))))
-  colnames(tmp4) <- colnames(tmp2)  
-  tmp4$plant <- plant.id
-  tmp4$`Plant Collection Site` <- tmp2[1,2]
-  tmp4$Year <- tmp2[1,3]
-  tmp4$locus <- "CHR"
-  tmp4$haplotype <- setdiff(tmp3$haplotype, tmp2$haplotype)
-  tmp4$n <- 0
-  tmp4$total_n = tmp2[1,7]
-  tmp5 <- rbind(tmp2, tmp4)
-  full.chr <- rbind(full.chr, tmp5)
-}
+table_S1 <- read_csv("Table_S1.csv", col_names = c("Full_Strain_Name", "Year", "Population", "glnII_Haplotype", "recA_Haplotype", "nodZ_Haplotype",  "nolL_Haplotype"), col_types = cols(Year = col_number(), Population = col_factor(levels = c("ANZ",  "BMR", "CLA", "GRI", "UCR", "YUC"))), skip = 1)
 
-for(i in 1:length(unique(sum.SI$plant))){
-  
-  plant.id = as.character(unique(sum.SI$plant)[i])
-  tmp2 <- subset(sum.SI, plant == plant.id)
-  tmp3 <- SI.haplos[SI.haplos$`Plant Collection Site` == tmp2[1,2], ]
-  tmp4 <- data.frame(matrix(ncol = 7, nrow = length(setdiff(tmp3$haplotype, tmp2$haplotype))))
-  colnames(tmp4) <- colnames(tmp2)  
-  tmp4$plant <- plant.id
-  tmp4$`Plant Collection Site` <- tmp2[1,2]
-  tmp4$Year <- tmp2[1,3]
-  tmp4$locus <- "SI"
-  tmp4$haplotype <- setdiff(tmp3$haplotype, tmp2$haplotype)
-  tmp4$n <- 0
-  tmp4$total_n = tmp2[1,7]
-  tmp5 <- rbind(tmp2, tmp4)
-  full.SI <- rbind(full.SI, tmp5)
-}
-  
-#Calculate frequencies
-full.chr$freq <- full.chr$n/full.chr$total_n  
-full.SI$freq <- full.SI$n/full.SI$total_n  
+table_S2 <- read_csv("Table_S2.csv", col_names = c("Strain", "Full_Strain_Name", "Population", "Latitude", "Longitude", "glnII_Haplotype", "glnII_Accession", "recA_Haplotype", "recA_Accession", "nodZ_Haplotype", "nodZ_Accession", "nolL_Haplotype", "nolL_Accession", "CHR_Haplotype", "CHR genotype frequency" , "SI_haplotye", "SI genotype frequency"), col_types = cols(Strain = col_factor(levels = c("132", "133", "134", "135", "136", "137", "138", "139", "140", "141", "142", "143", "144", "145", "146", "147", "148", "149", "150", "151", "152", "153", "154", "155", "156", "157", "158", "159", "160", "161")), `CHR genotype frequency` = col_number(), `SI genotype frequency` = col_number(), Population = col_factor(levels = c("Bodega Marine Reserve", "Griffith Park", "Robert J. Bernard Biological Field Station", "University of California Riverside", "Burns Pinon Ridge Reserve", "Anza Borrego Desert State Park"))), skip = 2)
+```
 
-#Summarize frequences by population, haplotype, and locus
-chr.sum <- full.chr %>% group_by(`Plant Collection Site`, haplotype) %>% summarize(mean_CHR_freq = mean(freq), n_CHR_freq = n(), 
-                                                                                   sd_CHR_freq = sd(freq), se_CHR=sd_CHR_freq/sqrt(n_CHR_freq))
-chr.sum$upper_CHR_CI <- chr.sum$mean_CHR_freq + (1.96*chr.sum$se_CHR/sqrt(chr.sum$n_CHR_freq))
-chr.sum$lower_CHR_CI <- chr.sum$mean_CHR_freq - (1.96*chr.sum$se_CHR/sqrt(chr.sum$n_CHR_freq))
-chr.sum$CHRpop <- paste0(chr.sum$`Plant Collection Site`, chr.sum$haplotype)
-SI.sum <- full.SI %>% group_by(`Plant Collection Site`, haplotype) %>% summarize(mean_SI_freq = mean(freq), n_SI_freq = n(), 
-                                                                                   sd_SI_freq = sd(freq), se_SI=sd_SI_freq/sqrt(n_SI_freq))
-SI.sum$upper_SI_CI <- SI.sum$mean_SI_freq + (1.96*SI.sum$se_SI/sqrt(SI.sum$n_SI_freq))
-SI.sum$lower_SI_CI <- SI.sum$mean_SI_freq - (1.96*SI.sum$se_SI/sqrt(SI.sum$n_SI_freq))
-SI.sum[77,2] <- "Z62L79"  #Fix a typo in the original table
-SI.sum$SIpop <- paste0(SI.sum$`Plant Collection Site`, SI.sum$haplotype)
+Next, we need to wrangle the data into a single dataframe.
 
-#Match strain names to genotypes
-strain_names <- read_csv("Table_S2.csv")
-strain_names <- strain_names[-1, c(-7, -9, -11, -13, -18)]
+``` r
+table_S1$SI_haplotype <- paste0(table_S1$nodZ_Haplotype, "_", table_S1$nolL_Haplotype) #Concatenate SI haplotypes, as per paper
+table_S1$CHR_haplotype <- paste0(table_S1$glnII_Haplotype, "_", table_S1$recA_Haplotype) #Concatenate CHR haplotypes, as per paper
 
-#Fix population names
-strain_names$Population <- ifelse(strain_names$Population == "Bodega Marine Reserve", "BMR",
-                                  ifelse(strain_names$Population == "Griffith Park", "GRI",
-                                  ifelse(strain_names$Population == "Robert J. Bernard Biological Field Station", "CLA",
-                                  ifelse(strain_names$Population == "University of California Riverside", "UCR", 
-                                  ifelse(strain_names$Population == "Anza Borrego Desert State Park", "ANZ", "YUC")))))
+table_S2$Population <- ifelse(table_S2$Population == "Bodega Marine Reserve", "BMR", ifelse(table_S2$Population == "Griffith Park", "GRI", ifelse(table_S2$Population == "Robert J. Bernard Biological Field Station", "CLA", ifelse(table_S2$Population == "University of California Riverside", "UCR", ifelse(table_S2$Population == "Anza Borrego Desert State Park", "ANZ", "YUC"))))) #Abbreviate Table_S2 population names
 
-#Remove underscores from haplotype names to merge between datasets
-strain_names$`chromosome haplotype (CHR)` <- gsub("_", "", strain_names$`chromosome haplotype (CHR)`)
-strain_names$`symbiosis island  haplotye (SI)` <- gsub("_", "", strain_names$`symbiosis island  haplotye (SI)`)
-strain_names$SIpop <- paste0(strain_names$Population, strain_names$`symbiosis island  haplotye (SI)`)
-strain_names$CHRpop <- paste0(strain_names$Population, strain_names$`chromosome haplotype (CHR)`)
+table_S1$Plant_ID <- gsub('R.*', "", (toupper(gsub('_.*', "", table_S1$Full_Strain_Name)))) #Make a column of unique plant ids
 
-#Merge datasets
-full.geno <- merge(strain_names, SI.sum, by="SIpop", all.x = TRUE)
-full.geno <- merge(full.geno, chr.sum, by = "CHRpop", all.x =TRUE)
+table_S1 <- table_S1[,c(1, 10, 2:9)] #Reorder columns
+table_S1.long <- gather(table_S1, locus, haplotype, glnII_Haplotype:CHR_haplotype, factor_key=TRUE) #Make wide data into long format
+table_S1.long <- subset(subset(table_S1.long, haplotype != "n/an/a"), haplotype != "n/a_n/a")  #Remove NAs
+table_S1.long <- subset(table_S1.long, locus == "SI_haplotype" | locus == "CHR_haplotype") #Subset to just CHR and SI haplotypes
 
 #Calculate nodules and plants sampled per population
-sum <- sum.gf %>% group_by(`Plant Collection Site`, locus) %>% summarize(total_nods_sampled=sum(n), total_plants_sampled=length(unique(plant)))
+new.table <- table_S1.long %>% group_by(Population, locus) %>% summarize(total_nods_sampled=n(), total_plants_sampled=length(unique(Plant_ID)))
+new.table.long <- merge(subset(new.table, locus == "SI_haplotype"), subset(new.table, locus == "CHR_haplotype"), by="Population") #Make wide data long
+new.table.long <- new.table.long[, c(1,3,4,6,7)]
+colnames(new.table.long) <- c("Population", "SI_nods_sampled", "SI_plants_sampled", "CHR_nods_sampled", "CHR_plants_sampled")
+
+#Merge number of nodules and plants sampled with Table S2 data
+table_S2 <- merge(table_S2, new.table.long, by="Population", all.x = TRUE)
+
+#Calculate strain means in Table S4
+#These should really be predicted from a linear mixed model using the emmeans package
+#But I think the original paper just used raw averages, so I do so here too
+#Also, because the paper calculated strain means just on sympatric host lines, I do the same here
+new.table2 <- subset(table_S4, `Host Line` != "A. heermannii" & `Host Line` != "UnH: Cla12.04" & `Host Line` != "UnL: Anz13.04") %>% group_by(Population, Strain) %>% summarize(mean_RGR = mean(`Relative Growth`, na.rm=TRUE), mean_total_nodules = mean(`Total nodules`, na.rm=TRUE), mean_nodule_mass = mean(`Mean individual  nodule biomass (mg)`, na.rm=TRUE))
+
+#Merge data in Tables S2 and S4 into a single data frame
+df <- merge(table_S2, new.table2[ ,2:5], by="Strain")
 ```
 
 How many nodules and plants were sampled per site?
@@ -160,48 +70,46 @@ How many nodules and plants were sampled per site?
 The sampling is uneven, with few plants sampled in ANZ and YUC.
 
 ``` r
-table <- sum
-colnames(table) <- c("Plant Collection Site", "Locus", "Nodules sampled (no.)", "Plants sampled (no.)")
-kable(table)
+colnames(new.table) <- c("Plant Collection Site", "Locus", "Nodules sampled (no.)", "Plants sampled (no.)")
+kable(new.table)
 ```
 
-| Plant Collection Site | Locus |  Nodules sampled (no.)|  Plants sampled (no.)|
-|:----------------------|:------|----------------------:|---------------------:|
-| ANZ                   | SI    |                     43|                     4|
-| ANZ                   | CHR   |                     44|                     4|
-| BMR                   | SI    |                    107|                    16|
-| BMR                   | CHR   |                    136|                    16|
-| CLA                   | SI    |                     68|                    20|
-| CLA                   | CHR   |                     68|                    20|
-| GRI                   | SI    |                      4|                     4|
-| GRI                   | CHR   |                     68|                    18|
-| UCR                   | SI    |                     17|                     5|
-| UCR                   | CHR   |                     88|                    31|
-| YUC                   | SI    |                     14|                     2|
-| YUC                   | CHR   |                     38|                     7|
+| Plant Collection Site | Locus          |  Nodules sampled (no.)|  Plants sampled (no.)|
+|:----------------------|:---------------|----------------------:|---------------------:|
+| ANZ                   | SI\_haplotype  |                     43|                     4|
+| ANZ                   | CHR\_haplotype |                     44|                     4|
+| BMR                   | SI\_haplotype  |                    108|                    16|
+| BMR                   | CHR\_haplotype |                    137|                    16|
+| CLA                   | SI\_haplotype  |                     68|                    20|
+| CLA                   | CHR\_haplotype |                     68|                    20|
+| GRI                   | SI\_haplotype  |                      4|                     4|
+| GRI                   | CHR\_haplotype |                     68|                    18|
+| UCR                   | SI\_haplotype  |                     17|                     5|
+| UCR                   | CHR\_haplotype |                     88|                    31|
+| YUC                   | SI\_haplotype  |                     15|                     2|
+| YUC                   | CHR\_haplotype |                     39|                     7|
 
 Plot sampling of CHR and SI frequencies
 =======================================
 
 ``` r
 #Model relationship between CHR frequency and number of plants sampled
-model1 <- lm(as.numeric(`CHR genotype frequency`)~n_CHR_freq, data=full.geno)
+model1 <- lm(`CHR genotype frequency`~CHR_plants_sampled, data=df)
 summary(model1)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = as.numeric(`CHR genotype frequency`) ~ n_CHR_freq, 
-    ##     data = full.geno)
+    ## lm(formula = `CHR genotype frequency` ~ CHR_plants_sampled, data = df)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
     ## -0.15864 -0.06893 -0.02852  0.03546  0.45500 
     ## 
     ## Coefficients:
-    ##              Estimate Std. Error t value Pr(>|t|)   
-    ## (Intercept)  0.209254   0.058857   3.555  0.00161 **
-    ## n_CHR_freq  -0.006979   0.003098  -2.253  0.03368 * 
+    ##                     Estimate Std. Error t value Pr(>|t|)   
+    ## (Intercept)         0.209254   0.058857   3.555  0.00161 **
+    ## CHR_plants_sampled -0.006979   0.003098  -2.253  0.03368 * 
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
@@ -211,681 +119,326 @@ summary(model1)
     ## F-statistic: 5.075 on 1 and 24 DF,  p-value: 0.03368
 
 ``` r
-CHR <- ggplot(data=full.geno, aes(y=as.numeric(`CHR genotype frequency`), x=n_CHR_freq, color=Population))+
-       geom_jitter(width=0.25)+
-        geom_smooth(method="lm", se=FALSE, color=1)+
-        xlab("Plants sampled (no.)")+
-        ylab("CHR genotype frequency")+
-        geom_text(aes(label=`Inoculation #`),hjust=0, vjust=0, size=2.5)
+CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_plants_sampled, color=Population))+geom_point()+ geom_smooth(method="lm", se=FALSE, color=1)+xlab("Plants sampled (no.)")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)
 
 #Model relationship between SI frequency and number of plants sampled
-model2 <- lm(as.numeric(`SI genotype frequency`)~n_SI_freq, data=full.geno)
+model2 <- lm(`SI genotype frequency`~SI_plants_sampled, data=df)
 summary(model2)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = as.numeric(`SI genotype frequency`) ~ n_SI_freq, 
-    ##     data = full.geno)
+    ## lm(formula = `SI genotype frequency` ~ SI_plants_sampled, data = df)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.15576 -0.06492  0.01539  0.07204  0.19793 
+    ## -0.14266 -0.09816 -0.02745  0.08514  0.21029 
     ## 
     ## Coefficients:
-    ##              Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)  0.207921   0.032609   6.376 2.54e-06 ***
-    ## n_SI_freq   -0.007491   0.002757  -2.717   0.0129 *  
+    ##                    Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)        0.191858   0.031538   6.083 3.32e-06 ***
+    ## SI_plants_sampled -0.006750   0.002758  -2.447   0.0225 *  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.09656 on 21 degrees of freedom
-    ##   (7 observations deleted due to missingness)
-    ## Multiple R-squared:  0.2601, Adjusted R-squared:  0.2249 
-    ## F-statistic: 7.383 on 1 and 21 DF,  p-value: 0.01291
+    ## Residual standard error: 0.09795 on 23 degrees of freedom
+    ##   (5 observations deleted due to missingness)
+    ## Multiple R-squared:  0.2066, Adjusted R-squared:  0.1721 
+    ## F-statistic: 5.988 on 1 and 23 DF,  p-value: 0.02246
 
 ``` r
-SI <- ggplot(data=full.geno, aes(y=as.numeric(`SI genotype frequency`), x=as.numeric(n_SI_freq), color=Population))+
-        geom_smooth(method="lm", se=FALSE, color=1)+
-        geom_jitter(width = 0.25)+
-        xlab("Plants sampled (no.)")+
-        ylab("SI genotype frequency")+
-        geom_text(aes(label=`Inoculation #`),hjust=0, vjust=0, size=2.5)
+SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=SI_plants_sampled, color=Population)) +geom_smooth(method="lm", se=FALSE, color=1)+geom_point()+xlab("Plants sampled (no.)")+ylab("SI genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)
 
 fig1 <- plot_grid(CHR, SI, nrow=2, labels="auto")
 save_plot("Fig1.png", fig1, base_width=8, base_height=8)
+fig1
 ```
 
-Calculate genotype means
-========================
+![](README_files/figure-markdown_github/Data%20distributions-1.png)
 
-This dataset has two measures of plant fitness and four measures of rhizobium fitness. The two measures of plant fitness are total plant biomass (i.e., shoot plus root mass) and relative growth rate (i.e., inoculated plant biomass divided by control plant biomass, hereafter "RGR"). The four measures of rhizobium fitness are total number of nodules, mean nodule mass, and the two genotypic frequencies, which the authors abbreviate CHR and SI. See original paper for details.
-
-First, we need to calculate the appropriate strain means for each variable. I think the authors did this just by taking the average. I did this using the emmeans package, which calculates estimated marginal means from a linear mixed model. Otherwise, I have tried to stick as close as possible to the analysis presented in the paper, which states that "all effects were coded as fixed except block, which was treated as a random effect" and that variables were log-transformed as needed to improve normality. I also calculated strain means only on data from sympatric hosts, again following the approach in the paper.
+Re-create original Fig. 5 from paper
+====================================
 
 ``` r
-#Clean up dataset a bit
-data <- subset(data, Strain != "control") #Exclude control, uninoculated plants
-data <- subset(data, `Total nodules` > 0) #Exclude inoculated plants that did not form nodules, as these are cases where the inoculation may have failed
-data$log_nodules <- log(data$`Total nodules`) #Log transform as needed, as per paper
-data$log_mean_nod_biomass <- log(data$`Mean individual  nodule biomass (mg)`) #Log transform as needed, as per paper
-data$plant_biomass <- data$`Shoots mass (g)` + data$`Roots mass (g)` #Combine shoot and root mass into one measure of plant biomass
-
-#Divide into sympatric and universal hosts, as per paper
-data_sym <- subset(data, `Host Line` != "A. heermannii" & `Host Line` != "UnH: Cla12.04" & `Host Line` != "UnL: Anz13.04")
-data_uni <- subset(data, `Host Line` == "A. heermannii" | `Host Line` == "UnH: Cla12.04" | `Host Line` == "UnL: Anz13.04")
-
-#Set dataset to use
-df <- data_sym
-
-#Fit models 
-lmm1 <- lmer(log_nodules~Population + Strain + `Host Line` + (1|Block), data=df) #Total nodule number model
-plot(lmm1)
-```
-
-![](README_files/figure-markdown_github/Genotype%20means-1.png)
-
-``` r
-summary(lmm1)
-```
-
-    ## Linear mixed model fit by REML ['lmerMod']
-    ## Formula: log_nodules ~ Population + Strain + `Host Line` + (1 | Block)
-    ##    Data: df
-    ## 
-    ## REML criterion at convergence: 411.7
-    ## 
-    ## Scaled residuals: 
-    ##     Min      1Q  Median      3Q     Max 
-    ## -3.3368 -0.5193  0.1419  0.5232  2.5940 
-    ## 
-    ## Random effects:
-    ##  Groups   Name        Variance Std.Dev.
-    ##  Block    (Intercept) 0.01402  0.1184  
-    ##  Residual             0.27504  0.5244  
-    ## Number of obs: 248, groups:  Block, 5
-    ## 
-    ## Fixed effects:
-    ##                     Estimate Std. Error t value
-    ## (Intercept)          3.24562    0.20769  15.627
-    ## PopulationBMR        0.55387    0.27334   2.026
-    ## PopulationCLA        0.48821    0.27081   1.803
-    ## PopulationGRI       -0.08345    0.28323  -0.295
-    ## PopulationUCR        0.35194    0.27162   1.296
-    ## PopulationYUC        0.81103    0.27334   2.967
-    ## Strain134           -0.28279    0.23454  -1.206
-    ## Strain135            0.17050    0.23454   0.727
-    ## Strain136           -0.57888    0.23454  -2.468
-    ## Strain137            0.02122    0.24723   0.086
-    ## Strain138            0.43402    0.24723   1.756
-    ## Strain139            0.00619    0.24723   0.025
-    ## Strain142           -0.15110    0.23454  -0.644
-    ## Strain143           -0.14475    0.23454  -0.617
-    ## Strain144            0.28410    0.23454   1.211
-    ## Strain145            0.48398    0.23454   2.064
-    ## Strain147           -0.23910    0.23454  -1.019
-    ## Strain149           -1.92890    0.25888  -7.451
-    ## Strain150           -0.01976    0.23454  -0.084
-    ## Strain151            0.27323    0.24122   1.133
-    ## Strain153           -0.10837    0.23454  -0.462
-    ## Strain154            0.12528    0.23454   0.534
-    ## Strain155            0.22920    0.23454   0.977
-    ## Strain157           -0.09869    0.24723  -0.399
-    ## Strain158            0.25307    0.24723   1.024
-    ## Strain159            0.23547    0.24723   0.952
-    ## `Host Line`Anz11.01  0.69719    0.17654   3.949
-    ## `Host Line`BMR01.03 -0.19616    0.16584  -1.183
-    ## `Host Line`Cla01.04  0.03900    0.14834   0.263
-    ## `Host Line`Gri01.01  0.15723    0.17654   0.891
-    ## `Host Line`UCR02.07 -0.04094    0.15523  -0.264
-    ## `Host Line`Yuc02.01 -0.12039    0.16584  -0.726
-    ## fit warnings:
-    ## fixed-effect model matrix is rank deficient so dropping 10 columns / coefficients
-
-``` r
-Anova(lmm1, type=3)
-```
-
-    ## Analysis of Deviance Table (Type III Wald chisquare tests)
-    ## 
-    ## Response: log_nodules
-    ##               Chisq Df Pr(>Chisq)    
-    ## (Intercept) 244.202  1  < 2.2e-16 ***
-    ## Population   15.514  5   0.008377 ** 
-    ## Strain      117.317 20  8.931e-16 ***
-    ## `Host Line`  18.413  6   0.005279 ** 
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-
-``` r
-df.means <- as.data.frame(emmeans(lmm1, "Strain")) #Extract line means and save them to new dataframe
-colnames(df.means) <- c("Strain", "Population", "tot_nod_lsmean", "tot_nod_SE", "tot_nod_df", "tot_nod_lowCL", "tot_nod_highCL") #Fix column names
-
-lmm2 <- lmer(log_mean_nod_biomass~Population + Strain + `Host Line` + (1|Block), data=df) # Mean nodule mass model
-#plot(lmm2)
-#summary(lmm2)
-Anova(lmm2, type=3)
-```
-
-    ## Analysis of Deviance Table (Type III Wald chisquare tests)
-    ## 
-    ## Response: log_mean_nod_biomass
-    ##               Chisq Df Pr(>Chisq)    
-    ## (Intercept) 188.837  1  < 2.2e-16 ***
-    ## Population   31.473  5  7.554e-06 ***
-    ## Strain       98.410 20  2.422e-12 ***
-    ## `Host Line`  20.749  6   0.002035 ** 
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-
-``` r
-tmp <- as.data.frame(emmeans(lmm2, "Strain")) #Extract line means and add them to the dataframe
-colnames(tmp) <- c("Strain", "Population", "nod_mass_lsmean", "nod_mass_SE", "nod_mass_df", "nod_mass_lowCL", "nod_mass_highCL")
-df.means <- cbind(df.means, tmp[,3:7])
-
-lmm3 <- lmer(plant_biomass~Population + Strain  + `Host Line` + (1|Block), data=df) #Plant biomass model
-#plot(lmm3)
-#summary(lmm3)
-Anova(lmm3, type=3)
-```
-
-    ## Analysis of Deviance Table (Type III Wald chisquare tests)
-    ## 
-    ## Response: plant_biomass
-    ##               Chisq Df Pr(>Chisq)    
-    ## (Intercept)  5.9654  1    0.01459 *  
-    ## Population  31.4326  5  7.694e-06 ***
-    ## Strain      71.8260 20  9.143e-08 ***
-    ## `Host Line` 29.1729  6  5.642e-05 ***
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-
-``` r
-tmp <- as.data.frame(emmeans(lmm3, "Strain")) #Extract line means and add them to the dataframe
-colnames(tmp) <- c("Strain", "Population", "plant_biomass_lsmean", "plant_biomass_SE", "plant_biomass_df", "plant_biomass_lowCL", "plant_biomass_highCL")
-df.means <- cbind(df.means, tmp[,3:7])
-
-lmm4 <- lmer(log(`Relative Growth`)~Population + Strain  + `Host Line` + (1|Block), data=df) #Relative growth rate, log-transformed as per the paper, but note this generates NAs because there are negative values
-#plot(lmm4)
-#summary(lmm4)
-Anova(lmm4, type=3)
-```
-
-    ## Analysis of Deviance Table (Type III Wald chisquare tests)
-    ## 
-    ## Response: log(`Relative Growth`)
-    ##                Chisq Df Pr(>Chisq)    
-    ## (Intercept) 289.3214  1  < 2.2e-16 ***
-    ## Population   11.5919  5   0.040829 *  
-    ## Strain       41.7485 20   0.002982 ** 
-    ## `Host Line`   6.6951  6   0.349969    
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-
-``` r
-tmp <- as.data.frame(emmeans(lmm4, "Strain")) #Extract line means and add them to the dataframe
-colnames(tmp) <- c("Strain", "Population", "RGR_lsmean", "RGR_SE", "RGR_df", "RGR_lowCL", "RGR_highCL")
-df.means <- cbind(df.means, tmp[,3:7])
-
-df.means <- merge(df.means, full.geno, by.x="Strain", by.y = "Inoculation #") #Add CHR and SI values for each isolate
-```
-
-Relative fitness within populations and standardize trait values
-================================================================
-
-Ideally, to compare across studies and fitness measures, we should calculate selection gradients in the standard way, as we would for any continuous phenotype. Here, the phenotype of interest is mutualist quality, or the amount of fitness benefit that a rhizobium strain provides to its legume host. The authors provide two measures of this trait in their dataset: plant biomass and RGR. Generally, trait values are standardized by subtracting the mean and dividing by the population standard deviation, and I did the same in my re-analysis of the data. The authors also report four fitness proxies in their dataset, namely the total number of nodules, mean nodule mass, and the two genotype frequencies CHR and SI. Fitness is typically relativized by dividing by the population mean, allowing comparisons of the strength of selection across analyses. In all cases, trait values and fitnesses are genotype means, i.e., breeding values (although this is an odd term when applied to bacteria). This is how Porter and Simms (2014) analyzed their data, when they found evidence for fitness conflict in a different legume-rhizobium mutualism, and we could thus directly compare the results.
-
-``` r
-#Calculate means and SDs for each fitness/trait measure for each population
-tmp <- df.means %>% group_by(Population.x) %>% summarize(
-  pop_mean_CHR=mean(as.numeric(`CHR genotype frequency`), na.rm=TRUE),
-  pop_mean_SI=mean(as.numeric(`SI genotype frequency`), na.rm=TRUE)
-  )
-```
-
-    ## Warning in mean(as.numeric(`SI genotype frequency`), na.rm = TRUE): NAs
-    ## introduced by coercion
-
-``` r
-df.means <- merge(df.means, tmp, by="Population.x") #Merge data frames
-
-#Using global means and standard deviations for traits measured in common garden
-#Relativize fitness by dividing by the mean fitness, the global mean for fitness measures from the common garden but the pop mean 
-#for CHR and SI
-df.means$tot_nod_std <- df.means$tot_nod_lsmean/mean(df.means$tot_nod_lsmean)
-df.means$nod_mass_std <- df.means$nod_mass_lsmean/mean(df.means$nod_mass_lsmean)
-df.means$CHR_std <- as.numeric(df.means$`CHR genotype frequency`)/df.means$pop_mean_CHR
-df.means$SI_std <- as.numeric(df.means$`SI genotype frequency`)/df.means$pop_mean_SI
-```
-
-    ## Warning: NAs introduced by coercion
-
-``` r
-#Standardize traits by subtracting the mean and dividing by the standard deviation
-df.means$plant_biomass_std <- (df.means$plant_biomass_lsmean - mean(df.means$plant_biomass_lsmean))/sd(df.means$plant_biomass_lsmean)
-df.means$RGR_std <- (df.means$RGR_lsmean - mean(df.means$RGR_lsmean))/sd(df.means$RGR_lsmean)
-```
-
-Estimate selection gradients
-============================
-
-Next, I adopt standard genetic selection analyses to estimate selection gradients by regressing relativized fitness against standardized trait values. I estimated eight selection gradients, because there are four fitness measures (nodule number, nodule mass, CHR, and SI) and two traits (plant biomass and RGR) in the paper.
-
-``` r
-#Total nodules and plant biomass
-
-lm1 <- lm(tot_nod_std~plant_biomass_std, data=df.means) #Model
-summary(lm1)
+model3 <- lm(`CHR genotype frequency`~log10(mean_RGR), data=df)
+summary(model3) #Numbers don't match paper, but qualitative pattern is the same
 ```
 
     ## 
     ## Call:
-    ## lm(formula = tot_nod_std ~ plant_biomass_std, data = df.means)
+    ## lm(formula = `CHR genotype frequency` ~ log10(mean_RGR), data = df)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.54068 -0.04724  0.00767  0.07151  0.17623 
+    ## -0.13050 -0.07016 -0.03656  0.00379  0.41804 
     ## 
     ## Coefficients:
-    ##                   Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)       1.000000   0.027888  35.857   <2e-16 ***
-    ## plant_biomass_std 0.001843   0.028441   0.065    0.949    
+    ##                 Estimate Std. Error t value Pr(>|t|)   
+    ## (Intercept)       0.8521     0.2939   2.899  0.00788 **
+    ## log10(mean_RGR)  -0.2622     0.1010  -2.595  0.01587 * 
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1422 on 24 degrees of freedom
-    ## Multiple R-squared:  0.000175,   Adjusted R-squared:  -0.04148 
-    ## F-statistic: 0.004201 on 1 and 24 DF,  p-value: 0.9489
+    ## Residual standard error: 0.1383 on 24 degrees of freedom
+    ##   (4 observations deleted due to missingness)
+    ## Multiple R-squared:  0.2192, Adjusted R-squared:  0.1866 
+    ## F-statistic: 6.736 on 1 and 24 DF,  p-value: 0.01587
 
 ``` r
-S1 <- paste0("S = ", round(summary(lm1)$coefficients[2,1], 3))
-pval1 <- round(summary(lm1)$coefficients[2,4],3)
-linetype <- ifelse(pval1 <= 0.05, "solid", "dashed")
-pval1 <- ifelse(pval1 <= 0.05, paste0("p = ", pval1), "ns")
-S1 <- paste0(S1, ", ", pval1)
+orig.fig5.CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=mean_RGR, color=Population))+geom_smooth(method="lm", se=FALSE, color=1)+geom_point()+xlab("Symbiotic effectiveness")+ylab("CHR genotype frequency")+scale_x_log10()+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)
 
-p1 <- ggplot(data=df.means, aes(y=tot_nod_std, x=plant_biomass_std, color=Population.x))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+
-      ylab("Nodule number")+
-      xlab("Plant biomass")
-
-#Nodule mass and plant biomass
-
-lm2 <- lm(nod_mass_std~plant_biomass_std, data=df.means) #Model
-summary(lm2)
+model4 <- lm(`SI genotype frequency`~log10(mean_RGR), data=df)
+summary(model4) #Numbers don't match paper, but qualitative pattern is the same
 ```
 
     ## 
     ## Call:
-    ## lm(formula = nod_mass_std ~ plant_biomass_std, data = df.means)
-    ## 
-    ## Residuals:
-    ##     Min      1Q  Median      3Q     Max 
-    ## -0.4023 -0.1287  0.0164  0.1508  0.3692 
-    ## 
-    ## Coefficients:
-    ##                   Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)        1.00000    0.04347  23.005   <2e-16 ***
-    ## plant_biomass_std -0.06764    0.04433  -1.526     0.14    
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-    ## 
-    ## Residual standard error: 0.2216 on 24 degrees of freedom
-    ## Multiple R-squared:  0.08844,    Adjusted R-squared:  0.05046 
-    ## F-statistic: 2.328 on 1 and 24 DF,  p-value: 0.1401
-
-``` r
-S2 <- paste0("S = ", round(summary(lm2)$coefficients[2,1], 3))
-pval2 <- round(summary(lm2)$coefficients[2,4],3)
-linetype <- ifelse(pval2 <= 0.05, "solid", "dashed")
-pval2 <- ifelse(pval2 <= 0.05, paste0("p = ", pval2), "ns")
-S2 <- paste0(S2, ", ", pval2)
-
-
-p2 <- ggplot(data=df.means, aes(y=nod_mass_std, x=plant_biomass_std, color=Population.x))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
-      ylab("Nodule mass")+
-      xlab("Plant biomass")
-
-#CHR and plant biomass
-
-lm3 <- lm(CHR_std~plant_biomass_std, data=df.means) #Model
-summary(lm3)
-```
-
-    ## 
-    ## Call:
-    ## lm(formula = CHR_std ~ plant_biomass_std, data = df.means)
-    ## 
-    ## Residuals:
-    ##     Min      1Q  Median      3Q     Max 
-    ## -1.0135 -0.7299 -0.4674  0.5305  2.3455 
-    ## 
-    ## Coefficients:
-    ##                   Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)         1.0000     0.2098   4.766 7.52e-05 ***
-    ## plant_biomass_std  -0.2259     0.2140  -1.056    0.302    
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-    ## 
-    ## Residual standard error: 1.07 on 24 degrees of freedom
-    ## Multiple R-squared:  0.04437,    Adjusted R-squared:  0.004552 
-    ## F-statistic: 1.114 on 1 and 24 DF,  p-value: 0.3017
-
-``` r
-S3 <- paste0("S = ", round(summary(lm3)$coefficients[2,1], 3))
-pval3 <- round(summary(lm3)$coefficients[2,4],3)
-linetype <- ifelse(pval3 <= 0.05, "solid", "dashed")
-pval3 <- ifelse(pval3 <= 0.05, paste0("p = ", pval3), "ns")
-S3 <- paste0(S3, ", ", pval3)
-
-
-p3 <- ggplot(data=df.means, aes(y=CHR_std, x=plant_biomass_std, color=Population.x))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
-      ylab("CHR")+
-      xlab("Plant biomass")+
-      guides(color=FALSE)
-
-#SI and plant biomass
- 
-lm4 <- lm(SI_std~plant_biomass_std, data=df.means) #Model
-summary(lm4)
-```
-
-    ## 
-    ## Call:
-    ## lm(formula = SI_std ~ plant_biomass_std, data = df.means)
+    ## lm(formula = `SI genotype frequency` ~ log10(mean_RGR), data = df)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.78329 -0.58917 -0.02558  0.35574  1.81858 
+    ## -0.10687 -0.08085 -0.01656  0.07767  0.24174 
     ## 
     ## Coefficients:
-    ##                   Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)        0.99967    0.15099   6.621 9.37e-07 ***
-    ## plant_biomass_std  0.01658    0.15173   0.109    0.914    
+    ##                 Estimate Std. Error t value Pr(>|t|)   
+    ## (Intercept)      0.61423    0.21076   2.914  0.00781 **
+    ## log10(mean_RGR) -0.16664    0.07241  -2.301  0.03078 * 
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.7548 on 23 degrees of freedom
-    ##   (1 observation deleted due to missingness)
-    ## Multiple R-squared:  0.0005188,  Adjusted R-squared:  -0.04294 
-    ## F-statistic: 0.01194 on 1 and 23 DF,  p-value: 0.9139
+    ## Residual standard error: 0.09914 on 23 degrees of freedom
+    ##   (5 observations deleted due to missingness)
+    ## Multiple R-squared:  0.1872, Adjusted R-squared:  0.1518 
+    ## F-statistic: 5.296 on 1 and 23 DF,  p-value: 0.03078
 
 ``` r
-S4 <- paste0("S = ", round(summary(lm4)$coefficients[2,1], 3))
-pval4 <- round(summary(lm4)$coefficients[2,4],3)
-linetype <- ifelse(pval4 <= 0.05, "solid", "dashed")
-pval4 <- ifelse(pval4 <= 0.05, paste0("p = ", pval4), "ns")
-S4 <- paste0(S4, ", ", pval4)
+orig.fig5.SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=mean_RGR, color=Population)) +geom_smooth(method="lm", se=FALSE, color=1)+geom_point()+xlab("Symbiotic effectiveness")+ylab("SI genotype frequency")+scale_x_log10()+ geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)
 
-p4 <- ggplot(data=df.means, aes(y=SI_std, x=plant_biomass_std, color=Population.x))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
-      ylab("SI")+
-      xlab("Plant biomass")
-
-#Total nodules and RGR
-
-lm5 <- lm(tot_nod_std~RGR_std, data=df.means) #Model
-summary(lm5)
+orig.fig5 <-plot_grid(orig.fig5.CHR, orig.fig5.SI, nrow=2, labels="auto")
 ```
 
-    ## 
-    ## Call:
-    ## lm(formula = tot_nod_std ~ RGR_std, data = df.means)
-    ## 
-    ## Residuals:
-    ##      Min       1Q   Median       3Q      Max 
-    ## -0.54833 -0.03214  0.01904  0.06870  0.17767 
-    ## 
-    ## Coefficients:
-    ##             Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)  1.00000    0.02775  36.034   <2e-16 ***
-    ## RGR_std     -0.01389    0.02830  -0.491    0.628    
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-    ## 
-    ## Residual standard error: 0.1415 on 24 degrees of freedom
-    ## Multiple R-squared:  0.009942,   Adjusted R-squared:  -0.03131 
-    ## F-statistic: 0.241 on 1 and 24 DF,  p-value: 0.6279
+    ## Warning: Removed 4 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 4 rows containing missing values (geom_point).
+
+    ## Warning: Removed 4 rows containing missing values (geom_text).
+
+    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 5 rows containing missing values (geom_point).
+
+    ## Warning: Removed 5 rows containing missing values (geom_text).
 
 ``` r
-S5 <- paste0("S = ", round(summary(lm5)$coefficients[2,1], 3))
-pval5 <- round(summary(lm5)$coefficients[2,4],3)
-linetype <- ifelse(pval5 <= 0.05, "solid", "dashed")
-pval5 <- ifelse(pval5 <= 0.05, paste0("p = ", pval5), "ns")
-S5 <- paste0(S5, ", ", pval5)
-
-p5 <- ggplot(data=df.means, aes(y=tot_nod_std, x=RGR_std, color=Population.x))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
-      ylab("Nodule number")+
-      xlab("RGR")
-
-#Nodule mass and RGR
-
-lm6 <- lm(nod_mass_std~RGR_std, data=df.means) #Model
-summary(lm6)
+orig.fig5
 ```
 
-    ## 
-    ## Call:
-    ## lm(formula = nod_mass_std ~ RGR_std, data = df.means)
-    ## 
-    ## Residuals:
-    ##      Min       1Q   Median       3Q      Max 
-    ## -0.35871 -0.16105  0.01479  0.16774  0.40330 
-    ## 
-    ## Coefficients:
-    ##             Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)  1.00000    0.04464  22.402   <2e-16 ***
-    ## RGR_std     -0.04475    0.04552  -0.983    0.335    
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-    ## 
-    ## Residual standard error: 0.2276 on 24 degrees of freedom
-    ## Multiple R-squared:  0.03871,    Adjusted R-squared:  -0.001349 
-    ## F-statistic: 0.9663 on 1 and 24 DF,  p-value: 0.3354
+![](README_files/figure-markdown_github/Fig3-1.png)
+
+Relative fitness within populations
+===================================
+
+Ideally, to compare across studies, fitness measures, and traits, we should calculate selection gradients in the standard way, as we would for any continuous phenotype. Normally, fitness is relativized by dividing by population mean fitness, and traits are standardized by subtracting the mean and dividing by the standard deviation. This allows comparisons of the strength of selection across analyses because everything is on a common scale.
+
+Here, I first use the same strain means for relative growth as above, but also then standardize them by substracting the mean and dividing by the SD. Either way, the relationship between genotype frequency and symbiotic effectiveness is non-significant once fitness is relativized within each population.
 
 ``` r
-S6 <- paste0("S = ", round(summary(lm6)$coefficients[2,1], 3))
-pval6 <- round(summary(lm6)$coefficients[2,4],3)
-linetype <- ifelse(pval6 <= 0.05, "solid", "dashed")
-pval6 <- ifelse(pval6 <= 0.05, paste0("p = ", pval6), "ns")
-S6 <- paste0(S6, ", ", pval6)
+#Calculate mean fitness for each population
+tmp <- df %>% group_by(Population) %>% summarize(pop_mean_CHR=mean(as.numeric(`CHR genotype frequency`), na.rm=TRUE), pop_mean_SI=mean(as.numeric(`SI genotype frequency`), na.rm=TRUE))
+df <- merge(df, tmp, by="Population") #Merge data frames
+df$CHR_std <- as.numeric(df$`CHR genotype frequency`)/df$pop_mean_CHR #Relative fitness within each population
+df$SI_std <- as.numeric(df$`SI genotype frequency`)/df$pop_mean_SI #Relative fitness within each population
+df$RGR_std <- (df$mean_RGR - mean(df$mean_RGR, na.rm=TRUE))/sd(df$mean_RGR, na.rm=TRUE) #Standardize trait by subtracting the mean and dividing by the standard deviation
 
-
-p6 <- ggplot(data=df.means, aes(y=nod_mass_std, x=RGR_std, color=Population.x))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
-      ylab("Nodule mass")+
-      xlab("RGR")
-
-#CHR and RGR
-lm7 <- lm(CHR_std~RGR_std, data=df.means)
-summary(lm7)
-```
-
-    ## 
-    ## Call:
-    ## lm(formula = CHR_std ~ RGR_std, data = df.means)
-    ## 
-    ## Residuals:
-    ##     Min      1Q  Median      3Q     Max 
-    ## -1.0128 -0.6893 -0.5369  0.6664  2.4992 
-    ## 
-    ## Coefficients:
-    ##             Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)   1.0000     0.2117   4.724 8.37e-05 ***
-    ## RGR_std      -0.1768     0.2159  -0.819    0.421    
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-    ## 
-    ## Residual standard error: 1.079 on 24 degrees of freedom
-    ## Multiple R-squared:  0.02718,    Adjusted R-squared:  -0.01335 
-    ## F-statistic: 0.6706 on 1 and 24 DF,  p-value: 0.4209
-
-``` r
-S7 <- paste0("S = ", round(summary(lm7)$coefficients[2,1], 3))
-pval7 <- round(summary(lm7)$coefficients[2,4],3)
-linetype <- ifelse(pval7 <= 0.05, "solid", "dashed")
-pval7 <- ifelse(pval7 <= 0.05, paste0("p = ", pval7), "ns")
-S7 <- paste0(S7, ", ", pval7)
-
-
-p7 <- ggplot(data=df.means, aes(y=CHR_std, x=RGR_std, color=Population.x))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
-      ylab("CHR")+
-      xlab("RGR")
-
-#SI and RGR
-
-lm8 <- lm(SI_std~RGR_std, data=df.means) #Model
-summary(lm8)
-```
-
-    ## 
-    ## Call:
-    ## lm(formula = SI_std ~ RGR_std, data = df.means)
-    ## 
-    ## Residuals:
-    ##      Min       1Q   Median       3Q      Max 
-    ## -0.77954 -0.60289 -0.00088  0.31093  1.83186 
-    ## 
-    ## Coefficients:
-    ##              Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)  1.000137   0.151025   6.622 9.33e-07 ***
-    ## RGR_std     -0.006645   0.151839  -0.044    0.965    
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-    ## 
-    ## Residual standard error: 0.755 on 23 degrees of freedom
-    ##   (1 observation deleted due to missingness)
-    ## Multiple R-squared:  8.325e-05,  Adjusted R-squared:  -0.04339 
-    ## F-statistic: 0.001915 on 1 and 23 DF,  p-value: 0.9655
-
-``` r
-S8 <- paste0("S = ", round(summary(lm8)$coefficients[2,1], 3))
-pval8 <- round(summary(lm8)$coefficients[2,4],3)
-linetype <- ifelse(pval8 <= 0.05, "solid", "dashed")
-pval8 <- ifelse(pval8 <= 0.05, paste0("p = ", pval8), "ns")
-S8 <- paste0(S8, ", ", pval8)
-
-
-p8 <- ggplot(data=df.means, aes(y=SI_std, x=RGR_std, color=Population.x))+
-      geom_point()+
-      geom_smooth(method="lm", se=FALSE, linetype=linetype, color=1)+
-      geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+
-      ylab("SI")+
-      xlab("RGR")
-```
-
-Selection on symbiont quality, measured as RGR
-==============================================
-
-After standardizing relative growth within each population and relativizing all four bacterial fitness measures, there is no significant selection on symbiont quality when it is measured as RGR, as in the paper. Dashed lines show non-significant regressions.
-
-``` r
-plot_grid(p5,p6,p7,p8, labels=c(S5, S6, S7, S8), hjust=c(-1,-1,-0.76,-0.76), scale = 0.9)
-```
-
-![](README_files/figure-markdown_github/Visualize%20selection%20gradients,%20using%20RGR-1.png)
-
-Selection on symbiont quality, measured as plant biomass
-========================================================
-
-Performing the same analysis but measuring symbiont quality using plant biomass, in the more traditional fashion, shows all non-significant relationships too. Again, dashed lines show non-signficiant selection gradients.
-
-``` r
-plot_grid(p1,p2,p3,p4, labels=c(S1, S2, S3, S4), hjust = c(-1,-1,-0.76,-0.84), scale=0.9)
-```
-
-![](README_files/figure-markdown_github/Visualize%20selection%20gradients,%20using%20plant%20biomass-1.png)
-
-Outliers
-========
-
-``` r
-original <- df %>% group_by(Population, Strain) %>% summarize(mean_RGR = mean(`Relative Growth`))
-original <- merge(original, df.means, by="Strain")
-
-dixon.test(as.numeric(original$`CHR genotype frequency`))
-```
-
-    ## 
-    ##  Dixon test for outliers
-    ## 
-    ## data:  as.numeric(original$`CHR genotype frequency`)
-    ## Q = 0.63675, p-value < 2.2e-16
-    ## alternative hypothesis: highest value 0.6154 is an outlier
-
-``` r
-#Exclude strain 156
-
-model4 <- lm(log10(mean_RGR)~as.numeric(`CHR genotype frequency`), data=subset(original, Strain != "156"))
-summary(model4)
-```
-
-    ## 
-    ## Call:
-    ## lm(formula = log10(mean_RGR) ~ as.numeric(`CHR genotype frequency`), 
-    ##     data = subset(original, Strain != "156"))
-    ## 
-    ## Residuals:
-    ##      Min       1Q   Median       3Q      Max 
-    ## -0.94229 -0.05045  0.00776  0.12174  0.35226 
-    ## 
-    ## Coefficients:
-    ##                                      Estimate Std. Error t value Pr(>|t|)
-    ## (Intercept)                           2.96597    0.05975  49.642   <2e-16
-    ## as.numeric(`CHR genotype frequency`) -0.65652    0.45470  -1.444    0.162
-    ##                                         
-    ## (Intercept)                          ***
-    ## as.numeric(`CHR genotype frequency`)    
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-    ## 
-    ## Residual standard error: 0.2505 on 23 degrees of freedom
-    ## Multiple R-squared:  0.08311,    Adjusted R-squared:  0.04324 
-    ## F-statistic: 2.085 on 1 and 23 DF,  p-value: 0.1623
-
-``` r
-model5 <- lm(log10(mean_RGR)~as.numeric(`SI genotype frequency`), data=subset(original, Strain != "156"))
+#Relativized CHR and unstandardized RGR
+model5 <- lm(CHR_std~log10(mean_RGR), data=df)
 summary(model5)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = log10(mean_RGR) ~ as.numeric(`SI genotype frequency`), 
-    ##     data = subset(original, Strain != "156"))
+    ## lm(formula = CHR_std ~ log10(mean_RGR), data = df)
     ## 
     ## Residuals:
-    ##      Min       1Q   Median       3Q      Max 
-    ## -0.90449 -0.07436  0.03245  0.14579  0.30519 
+    ##     Min      1Q  Median      3Q     Max 
+    ## -0.9996 -0.6370 -0.5284  0.6344  2.5159 
     ## 
     ## Coefficients:
-    ##                                     Estimate Std. Error t value Pr(>|t|)
-    ## (Intercept)                          3.03152    0.08027  37.769   <2e-16
-    ## as.numeric(`SI genotype frequency`) -0.89209    0.49620  -1.798   0.0859
-    ##                                        
-    ## (Intercept)                         ***
-    ## as.numeric(`SI genotype frequency`) .  
+    ##                 Estimate Std. Error t value Pr(>|t|)
+    ## (Intercept)       2.4375     2.3070   1.057    0.301
+    ## log10(mean_RGR)  -0.4961     0.7928  -0.626    0.537
+    ## 
+    ## Residual standard error: 1.086 on 24 degrees of freedom
+    ##   (4 observations deleted due to missingness)
+    ## Multiple R-squared:  0.01605,    Adjusted R-squared:  -0.02494 
+    ## F-statistic: 0.3916 on 1 and 24 DF,  p-value: 0.5374
+
+``` r
+#Relativized CHR and standardized RGR
+model6 <- lm(CHR_std~RGR_std, data=df)
+summary(model6)
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = CHR_std ~ RGR_std, data = df)
+    ## 
+    ## Residuals:
+    ##     Min      1Q  Median      3Q     Max 
+    ## -1.0726 -0.6060 -0.5235  0.6423  2.4570 
+    ## 
+    ## Coefficients:
+    ##             Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)   1.0000     0.2121   4.714 8.59e-05 ***
+    ## RGR_std      -0.1625     0.2163  -0.751     0.46    
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.2497 on 22 degrees of freedom
-    ##   (1 observation deleted due to missingness)
+    ## Residual standard error: 1.082 on 24 degrees of freedom
+    ##   (4 observations deleted due to missingness)
+    ## Multiple R-squared:  0.02298,    Adjusted R-squared:  -0.01773 
+    ## F-statistic: 0.5644 on 1 and 24 DF,  p-value: 0.4598
+
+``` r
+#Relativized SI and unstandardized RGR
+model7 <- lm(SI_std~log10(mean_RGR), data=df) 
+summary(model7)
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = SI_std ~ log10(mean_RGR), data = df)
+    ## 
+    ## Residuals:
+    ##      Min       1Q   Median       3Q      Max 
+    ## -0.77370 -0.60118 -0.00309  0.24879  1.84127 
+    ## 
+    ## Coefficients:
+    ##                 Estimate Std. Error t value Pr(>|t|)
+    ## (Intercept)      1.23889    1.60415   0.772    0.448
+    ## log10(mean_RGR) -0.08244    0.55115  -0.150    0.882
+    ## 
+    ## Residual standard error: 0.7546 on 23 degrees of freedom
+    ##   (5 observations deleted due to missingness)
+    ## Multiple R-squared:  0.0009718,  Adjusted R-squared:  -0.04246 
+    ## F-statistic: 0.02237 on 1 and 23 DF,  p-value: 0.8824
+
+``` r
+#Relativized SI and standardized RGR
+model8 <- lm(SI_std~RGR_std, data=df) 
+summary(model8)
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = SI_std ~ RGR_std, data = df)
+    ## 
+    ## Residuals:
+    ##      Min       1Q   Median       3Q      Max 
+    ## -0.79938 -0.59222  0.00443  0.37217  1.81066 
+    ## 
+    ## Coefficients:
+    ##             Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)  0.99973    0.15094   6.623 9.31e-07 ***
+    ## RGR_std      0.02181    0.15124   0.144    0.887    
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Residual standard error: 0.7547 on 23 degrees of freedom
+    ##   (5 observations deleted due to missingness)
+    ## Multiple R-squared:  0.000903,   Adjusted R-squared:  -0.04254 
+    ## F-statistic: 0.02079 on 1 and 23 DF,  p-value: 0.8866
+
+``` r
+new.Fig5.SI.unstandardized <- ggplot(data=df, aes(y=SI_std, x=mean_RGR, color=Population))+geom_point()+geom_smooth(method="lm", se=FALSE, linetype="dashed", color=1)+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+ ylab("SI genotype frequency")+  xlab("Symbiotic effectiveness")+scale_x_log10()
+
+new.Fig5.CHR.unstandardized <- ggplot(data=df, aes(y=CHR_std, x=mean_RGR, color=Population))+ geom_point()+geom_smooth(method="lm", se=FALSE, linetype="dashed", color=1)+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+ylab("CHR genotype frequency")+xlab("Symbiotic effectiveness")+scale_x_log10()
+
+new.Fig5 <- plot_grid(new.Fig5.CHR.unstandardized, new.Fig5.SI.unstandardized, nrow=2, labels="auto")
+```
+
+    ## Warning: Removed 4 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 4 rows containing missing values (geom_point).
+
+    ## Warning: Removed 4 rows containing missing values (geom_text).
+
+    ## Warning: Removed 5 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 5 rows containing missing values (geom_point).
+
+    ## Warning: Removed 5 rows containing missing values (geom_text).
+
+``` r
+new.Fig5
+```
+
+![](README_files/figure-markdown_github/Relative%20fitness%20and%20standardize%20traits-1.png)
+
+Test for outliers
+=================
+
+``` r
+dixon.test(as.numeric(df$`CHR genotype frequency`)) #Test for outliers in CHR genotype frequency 
+```
+
+    ## 
+    ##  Dixon test for outliers
+    ## 
+    ## data:  as.numeric(df$`CHR genotype frequency`)
+    ## Q = 0.63675, p-value < 2.2e-16
+    ## alternative hypothesis: highest value 0.6154 is an outlier
+
+``` r
+#Exclude strain 156, which is a significant outlier for CHR genotype frequency
+
+model9 <- lm(`CHR genotype frequency`~log10(mean_RGR), data=subset(df, Strain != "156"))
+summary(model9) #Non-significant
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = `CHR genotype frequency` ~ log10(mean_RGR), data = subset(df, 
+    ##     Strain != "156"))
+    ## 
+    ## Residuals:
+    ##      Min       1Q   Median       3Q      Max 
+    ## -0.08422 -0.05419 -0.03724  0.00881  0.44253 
+    ## 
+    ## Coefficients:
+    ##                 Estimate Std. Error t value Pr(>|t|)  
+    ## (Intercept)      0.44108    0.25686   1.717   0.0994 .
+    ## log10(mean_RGR) -0.12659    0.08767  -1.444   0.1623  
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Residual standard error: 0.11 on 23 degrees of freedom
+    ##   (4 observations deleted due to missingness)
+    ## Multiple R-squared:  0.08311,    Adjusted R-squared:  0.04324 
+    ## F-statistic: 2.085 on 1 and 23 DF,  p-value: 0.1623
+
+``` r
+model10 <- lm(`SI genotype frequency`~log10(mean_RGR), data=subset(df, Strain != "156"))
+summary(model10) #Non-significant
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = `SI genotype frequency` ~ log10(mean_RGR), data = subset(df, 
+    ##     Strain != "156"))
+    ## 
+    ## Residuals:
+    ##      Min       1Q   Median       3Q      Max 
+    ## -0.09977 -0.07794 -0.03679  0.08330  0.24430 
+    ## 
+    ## Coefficients:
+    ##                 Estimate Std. Error t value Pr(>|t|)  
+    ## (Intercept)      0.54425    0.23412   2.325   0.0297 *
+    ## log10(mean_RGR) -0.14360    0.07987  -1.798   0.0859 .
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Residual standard error: 0.1002 on 22 degrees of freedom
+    ##   (5 observations deleted due to missingness)
     ## Multiple R-squared:  0.1281, Adjusted R-squared:  0.08847 
     ## F-statistic: 3.232 on 1 and 22 DF,  p-value: 0.08594
