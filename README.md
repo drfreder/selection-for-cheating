@@ -1,7 +1,7 @@
 Are rhizobia under selection to cheat?
 ================
 Megan Frederickson
-2019-04-21
+2019-04-22
 
 Is there fitness conflict between legumes and rhizobia?
 -------------------------------------------------------
@@ -350,6 +350,8 @@ Test for outliers
 -----------------
 
 ``` r
+library(outliers)
+
 dixon.test(as.numeric(df$`CHR genotype frequency`)) #Test for outliers in CHR genotype frequency 
 ```
 
@@ -413,3 +415,56 @@ summary(model10) #Non-significant
     ##   (5 observations deleted due to missingness)
     ## Multiple R-squared:  0.1281, Adjusted R-squared:  0.08847 
     ## F-statistic: 3.232 on 1 and 22 DF,  p-value: 0.08594
+
+Rarefaction analysis of haplotypes sampled at field sistes
+----------------------------------------------------------
+
+``` r
+library(vegan)
+library(labdsv)
+
+#Create unique population-plant identifier
+table_S1$pop_plant <- paste0(table_S1$Population, table_S1$Plant_ID)
+  
+#Transform Table S1 data into a community matrix, in which columns are SI or CHR haplotypes and rows are plants
+SI_matrix <- table_S1[, c(9,11)] %>% group_by(pop_plant, SI_haplotype) %>% count(SI_haplotype)
+SI_matrix <- subset(SI_matrix, SI_haplotype != "n/a_n/a") #Remove NAs
+SI_matrix <- subset(SI_matrix, SI_haplotype != "Z01_X" & SI_haplotype != "Z13_X") #Remove Xs 
+SI_matrix <- matrify(as.data.frame(SI_matrix))
+CHR_matrix <- table_S1[, c(10,11)] %>% group_by(pop_plant, CHR_haplotype) %>% count(CHR_haplotype)
+CHR_matrix <- subset(CHR_matrix, CHR_haplotype != "n/a_n/a") #Remove NAs
+CHR_matrix <- matrify(as.data.frame(CHR_matrix))
+
+#Rarefy within each population
+SI.accum.CLA <- specaccum(SI_matrix[21:40, ])
+SI.accum.BMR <- specaccum(SI_matrix[5:20, ])
+SI.accum.ANZ <- specaccum(SI_matrix[1:4, ]) 
+SI.accum.GRI <- specaccum(SI_matrix[41:44, ])
+SI.accum.YUC <- specaccum(SI_matrix[50:51, ])
+SI.accum.UCR <- specaccum(SI_matrix[45:49, ])
+CHR.accum.CLA <- specaccum(CHR_matrix[21:40, ])
+CHR.accum.BMR <- specaccum(CHR_matrix[5:20, ])
+CHR.accum.ANZ <- specaccum(CHR_matrix[1:4, ]) 
+CHR.accum.GRI <- specaccum(CHR_matrix[41:58, ])
+CHR.accum.YUC <- specaccum(CHR_matrix[90:96, ])
+CHR.accum.UCR <- specaccum(CHR_matrix[59:89, ])
+
+#Wrange in to a single dataframe
+SI.accum <- rbind(data.frame(plants=SI.accum.YUC$sites, richness=SI.accum.YUC$richness, SD=SI.accum.YUC$sd, Population="YUC"), data.frame(plants=SI.accum.UCR$sites, richness=SI.accum.UCR$richness, SD=SI.accum.UCR$sd, Population="UCR"), data.frame(plants=SI.accum.GRI$sites, richness=SI.accum.GRI$richness, SD=SI.accum.GRI$sd, Population="GRI"), data.frame(plants=SI.accum.ANZ$sites, richness=SI.accum.ANZ$richness, SD=SI.accum.ANZ$sd, Population="ANZ"), data.frame(plants=SI.accum.BMR$sites, richness=SI.accum.BMR$richness, SD=SI.accum.BMR$sd, Population="BMR"), data.frame(plants=SI.accum.CLA$sites, richness=SI.accum.CLA$richness, SD=SI.accum.CLA$sd, Population="CLA"))
+SI.accum$Population <- factor(SI.accum$Population, levels=c("ANZ", "BMR", "CLA", "GRI", "UCR", "YUC"))
+
+CHR.accum <- rbind(data.frame(plants=CHR.accum.YUC$sites, richness=CHR.accum.YUC$richness, SD=CHR.accum.YUC$sd, Population="YUC"), data.frame(plants=CHR.accum.UCR$sites, richness=CHR.accum.UCR$richness, SD=CHR.accum.UCR$sd, Population="UCR"), data.frame(plants=CHR.accum.GRI$sites, richness=CHR.accum.GRI$richness, SD=CHR.accum.GRI$sd, Population="GRI"), data.frame(plants=CHR.accum.ANZ$sites, richness=CHR.accum.ANZ$richness, SD=CHR.accum.ANZ$sd, Population="ANZ"), data.frame(plants=CHR.accum.BMR$sites, richness=CHR.accum.BMR$richness, SD=CHR.accum.BMR$sd, Population="BMR"), data.frame(plants=CHR.accum.CLA$sites, richness=CHR.accum.CLA$richness, SD=CHR.accum.CLA$sd, Population="CLA"))
+CHR.accum$Population <- factor(CHR.accum$Population, levels=c("ANZ", "BMR", "CLA", "GRI", "UCR", "YUC"))
+
+#Plot species accumulation curves
+SI.accum.curve <- ggplot(data=SI.accum, aes(x=plants, y=richness, color=Population))+geom_point()+geom_line()+geom_errorbar(aes(x=plants, ymin=richness-SD, ymax=richness+SD), alpha=0.5, width=0.1)+xlab("Plants sampled (no.)")+ylab("Unique SI genotypes (no.)")
+
+CHR.accum.curve <- ggplot(data=CHR.accum, aes(x=plants, y=richness, color=Population))+geom_point()+geom_line()+geom_errorbar(aes(x=plants, ymin=richness-SD, ymax=richness+SD), alpha=0.5, width=0.1)+xlab("Plants sampled (no.)")+ylab("Unique CHR genotypes (no.)")
+
+#Make figure
+fig2 <- plot_grid(CHR.accum.curve, SI.accum.curve, nrow=2, labels="auto")
+save_plot("Fig2.png", fig2, base_width=8, base_height=8)
+fig2
+```
+
+![](README_files/figure-markdown_github/Rarefaction-1.png)
