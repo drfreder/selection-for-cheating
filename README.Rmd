@@ -177,23 +177,6 @@ new.Fig5
 
 ```
 
-## Test for outliers
-
-```{r Outliers, message=FALSE, warning=FALSE}
-
-library(outliers)
-
-dixon.test(as.numeric(df$`CHR genotype frequency`)) #Test for outliers in CHR genotype frequency 
-
-#Exclude strain 156, which is a significant outlier for CHR genotype frequency and the same SI haplotype as 155
-
-model9 <- lm(`CHR genotype frequency`~log10(mean_RGR), data=subset(df, Strain != "156"))
-summary(model9) #Non-significant
-
-model10 <- lm(`SI genotype frequency`~log10(mean_RGR), data=subset(df, Strain != "156"))
-summary(model10) #Non-significant
-```
-
 ## Rarefaction analysis of haplotypes sampled at field sistes
 
 ```{r Rarefaction, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
