@@ -101,7 +101,7 @@ data_sym <- subset(table_S4, `Host Line` != "A. heermannii" & `Host Line` != "Un
 new.table2 <- data_sym %>% group_by(Population, Strain) %>% summarize(mean_RGR = mean(`Relative Growth`, na.rm=TRUE), mean_total_nodules = mean(`Total nodules`, na.rm=TRUE), mean_nodule_mass = mean(`Mean individual  nodule biomass (mg)`, na.rm=TRUE), mean_log10_RGR = mean(logRGR, na.rm=TRUE)) #Calculate means
 
 #Merge data in Tables S2 and S4 into a single data frame
-df <- merge(table_S2, new.table2[ ,2:6], by="Strain") #Merge everything into a single data frame
+df <- merge(table_S2, new.table2[ ,2:6], by="Strain") 
 
 ```
 
@@ -134,8 +134,8 @@ CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_plants_sampled, col
 
 SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=SI_plants_sampled, color=Population)) +geom_smooth(method="lm", se=TRUE, color=1)+geom_point()+xlab("Plants sampled (no.)")+ylab("SI genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+scale_x_continuous(limits=c(0, 23))+guides(color=FALSE)
 
-fig <- plot_grid(CHR, SI, nrow=2, labels="auto") #Show figure
-fig
+fig <- plot_grid(CHR, SI, nrow=2, labels="auto") 
+fig #Show figure
 ```
 
 ## Rarefaction analysis of haplotypes sampled at field sistes
@@ -172,7 +172,7 @@ CHR.accum.GRI <- specaccum(CHR_matrix[41:58, ])
 CHR.accum.YUC <- specaccum(CHR_matrix[90:96, ])
 CHR.accum.UCR <- specaccum(CHR_matrix[59:89, ])
 
-#Wrange in to a single dataframe
+#Wrangle in to a single dataframe
 SI.accum <- rbind(data.frame(plants=SI.accum.YUC$sites, richness=SI.accum.YUC$richness, SD=SI.accum.YUC$sd, Population="YUC"), data.frame(plants=SI.accum.UCR$sites, richness=SI.accum.UCR$richness, SD=SI.accum.UCR$sd, Population="UCR"), data.frame(plants=SI.accum.GRI$sites, richness=SI.accum.GRI$richness, SD=SI.accum.GRI$sd, Population="GRI"), data.frame(plants=SI.accum.ANZ$sites, richness=SI.accum.ANZ$richness, SD=SI.accum.ANZ$sd, Population="ANZ"), data.frame(plants=SI.accum.BMR$sites, richness=SI.accum.BMR$richness, SD=SI.accum.BMR$sd, Population="BMR"), data.frame(plants=SI.accum.CLA$sites, richness=SI.accum.CLA$richness, SD=SI.accum.CLA$sd, Population="CLA"))
 SI.accum$Population <- factor(SI.accum$Population, levels=c("ANZ", "BMR", "CLA", "GRI", "UCR", "YUC"))
 
@@ -192,11 +192,11 @@ save_plot("Fig1.png", fig1, base_width=8, base_height=8)
 
 ## How does uneven sampling among sites affect the results?
 
-I corrected for uneven sampling in two ways: 1) by relativizing fitness by dividing by the population mean, and 3) by sub-sampling the data for each population to the smallest sample sizes, and re-calculating genotype frequencies. Then I re-analyzed the relationship between strain frequency and symbiotic effectiveness (i.e., what appears in the original paper's Figure 5) using simple linear models. 
+I corrected for uneven sampling in two ways: 1) by relativizing fitness by dividing by the population mean, and 2) by sub-sampling the data for each population to the smallest sample sizes, and re-calculating genotype frequencies. Then I re-analyzed the relationship between strain frequency and symbiotic effectiveness (i.e., what appears in the original paper's Figure 5) using simple linear models. 
 
 ## Method 1: Relativize fitness within populations
 
-First, we need to re-create the original analysis in the paper's Figure 5, to make sure I get the same answer.
+First, I need to re-create the original analysis in the paper's Figure 5, to make sure I get the same answer.
 
 ```{r Fig5, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
 

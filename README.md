@@ -78,7 +78,7 @@ data_sym <- subset(table_S4, `Host Line` != "A. heermannii" & `Host Line` != "Un
 new.table2 <- data_sym %>% group_by(Population, Strain) %>% summarize(mean_RGR = mean(`Relative Growth`, na.rm=TRUE), mean_total_nodules = mean(`Total nodules`, na.rm=TRUE), mean_nodule_mass = mean(`Mean individual  nodule biomass (mg)`, na.rm=TRUE), mean_log10_RGR = mean(logRGR, na.rm=TRUE)) #Calculate means
 
 #Merge data in Tables S2 and S4 into a single data frame
-df <- merge(table_S2, new.table2[ ,2:6], by="Strain") #Merge everything into a single data frame
+df <- merge(table_S2, new.table2[ ,2:6], by="Strain") 
 ```
 
 How many nodules and plants were sampled per site?
@@ -169,8 +169,8 @@ CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_plants_sampled, col
 
 SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=SI_plants_sampled, color=Population)) +geom_smooth(method="lm", se=TRUE, color=1)+geom_point()+xlab("Plants sampled (no.)")+ylab("SI genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+scale_x_continuous(limits=c(0, 23))+guides(color=FALSE)
 
-fig <- plot_grid(CHR, SI, nrow=2, labels="auto") #Show figure
-fig
+fig <- plot_grid(CHR, SI, nrow=2, labels="auto") 
+fig #Show figure
 ```
 
 ![](README_files/figure-markdown_github/Data%20distributions-1.png)
@@ -209,7 +209,7 @@ CHR.accum.GRI <- specaccum(CHR_matrix[41:58, ])
 CHR.accum.YUC <- specaccum(CHR_matrix[90:96, ])
 CHR.accum.UCR <- specaccum(CHR_matrix[59:89, ])
 
-#Wrange in to a single dataframe
+#Wrangle in to a single dataframe
 SI.accum <- rbind(data.frame(plants=SI.accum.YUC$sites, richness=SI.accum.YUC$richness, SD=SI.accum.YUC$sd, Population="YUC"), data.frame(plants=SI.accum.UCR$sites, richness=SI.accum.UCR$richness, SD=SI.accum.UCR$sd, Population="UCR"), data.frame(plants=SI.accum.GRI$sites, richness=SI.accum.GRI$richness, SD=SI.accum.GRI$sd, Population="GRI"), data.frame(plants=SI.accum.ANZ$sites, richness=SI.accum.ANZ$richness, SD=SI.accum.ANZ$sd, Population="ANZ"), data.frame(plants=SI.accum.BMR$sites, richness=SI.accum.BMR$richness, SD=SI.accum.BMR$sd, Population="BMR"), data.frame(plants=SI.accum.CLA$sites, richness=SI.accum.CLA$richness, SD=SI.accum.CLA$sd, Population="CLA"))
 SI.accum$Population <- factor(SI.accum$Population, levels=c("ANZ", "BMR", "CLA", "GRI", "UCR", "YUC"))
 
@@ -235,12 +235,12 @@ save_plot("Fig1.png", fig1, base_width=8, base_height=8)
 How does uneven sampling among sites affect the results?
 --------------------------------------------------------
 
-I corrected for uneven sampling in two ways: 1) by relativizing fitness by dividing by the population mean, and 3) by sub-sampling the data for each population to the smallest sample sizes, and re-calculating genotype frequencies. Then I re-analyzed the relationship between strain frequency and symbiotic effectiveness (i.e., what appears in the original paper's Figure 5) using simple linear models.
+I corrected for uneven sampling in two ways: 1) by relativizing fitness by dividing by the population mean, and 2) by sub-sampling the data for each population to the smallest sample sizes, and re-calculating genotype frequencies. Then I re-analyzed the relationship between strain frequency and symbiotic effectiveness (i.e., what appears in the original paper's Figure 5) using simple linear models.
 
 Method 1: Relativize fitness within populations
 -----------------------------------------------
 
-First, we need to re-create the original analysis in the paper's Figure 5, to make sure I get the same answer.
+First, I need to re-create the original analysis in the paper's Figure 5, to make sure I get the same answer.
 
 ``` r
 #Model CHR genotype frequency, as in original paper
@@ -537,18 +537,18 @@ summary(model9) #Non-significant
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.14489 -0.07192 -0.03822  0.00119  0.38803 
+    ## -0.14598 -0.07103 -0.03860  0.00444  0.38274 
     ## 
     ## Coefficients:
-    ##                Estimate Std. Error t value Pr(>|t|)  
-    ## (Intercept)      0.3250     0.1174   2.769   0.0107 *
-    ## mean_log10_RGR  -0.2133     0.1305  -1.634   0.1153  
+    ##                Estimate Std. Error t value Pr(>|t|)   
+    ## (Intercept)      0.3262     0.1166   2.798  0.00999 **
+    ## mean_log10_RGR  -0.2132     0.1297  -1.644  0.11316   
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1411 on 24 degrees of freedom
-    ## Multiple R-squared:  0.1001, Adjusted R-squared:  0.06264 
-    ## F-statistic: 2.671 on 1 and 24 DF,  p-value: 0.1153
+    ## Residual standard error: 0.1402 on 24 degrees of freedom
+    ## Multiple R-squared:  0.1012, Adjusted R-squared:  0.06379 
+    ## F-statistic: 2.704 on 1 and 24 DF,  p-value: 0.1132
 
 ``` r
 #Fit model for mean SI genotype frequency from re-sampling and RGR
@@ -562,18 +562,18 @@ summary(model10) #Non-significant
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.18382 -0.08998 -0.05133  0.10132  0.27064 
+    ## -0.18404 -0.08934 -0.03820  0.06253  0.27503 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)  
-    ## (Intercept)     0.28428    0.13378   2.125   0.0462 *
-    ## mean_log10_RGR -0.05388    0.14632  -0.368   0.7166  
+    ## (Intercept)     0.29185    0.12935   2.256   0.0354 *
+    ## mean_log10_RGR -0.06562    0.14148  -0.464   0.6478  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1562 on 20 degrees of freedom
-    ## Multiple R-squared:  0.006734,   Adjusted R-squared:  -0.04293 
-    ## F-statistic: 0.1356 on 1 and 20 DF,  p-value: 0.7166
+    ## Residual standard error: 0.151 on 20 degrees of freedom
+    ## Multiple R-squared:  0.01064,    Adjusted R-squared:  -0.03883 
+    ## F-statistic: 0.2151 on 1 and 20 DF,  p-value: 0.6478
 
 ``` r
 #Make figures
