@@ -537,18 +537,18 @@ summary(model9) #Non-significant
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.14598 -0.07103 -0.03860  0.00444  0.38274 
+    ## -0.14427 -0.07203 -0.04010  0.00745  0.38330 
     ## 
     ## Coefficients:
-    ##                Estimate Std. Error t value Pr(>|t|)   
-    ## (Intercept)      0.3262     0.1166   2.798  0.00999 **
-    ## mean_log10_RGR  -0.2132     0.1297  -1.644  0.11316   
+    ##                Estimate Std. Error t value Pr(>|t|)  
+    ## (Intercept)      0.3231     0.1166   2.772   0.0106 *
+    ## mean_log10_RGR  -0.2101     0.1297  -1.621   0.1181  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1402 on 24 degrees of freedom
-    ## Multiple R-squared:  0.1012, Adjusted R-squared:  0.06379 
-    ## F-statistic: 2.704 on 1 and 24 DF,  p-value: 0.1132
+    ## Residual standard error: 0.1401 on 24 degrees of freedom
+    ## Multiple R-squared:  0.09866,    Adjusted R-squared:  0.0611 
+    ## F-statistic: 2.627 on 1 and 24 DF,  p-value: 0.1181
 
 ``` r
 #Fit model for mean SI genotype frequency from re-sampling and RGR
@@ -562,18 +562,18 @@ summary(model10) #Non-significant
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.18404 -0.08934 -0.03820  0.06253  0.27503 
+    ## -0.18889 -0.09622 -0.03267  0.08888  0.27019 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)  
-    ## (Intercept)     0.29185    0.12935   2.256   0.0354 *
-    ## mean_log10_RGR -0.06562    0.14148  -0.464   0.6478  
+    ## (Intercept)     0.29672    0.13702   2.165   0.0426 *
+    ## mean_log10_RGR -0.06564    0.14987  -0.438   0.6661  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.151 on 20 degrees of freedom
-    ## Multiple R-squared:  0.01064,    Adjusted R-squared:  -0.03883 
-    ## F-statistic: 0.2151 on 1 and 20 DF,  p-value: 0.6478
+    ## Residual standard error: 0.16 on 20 degrees of freedom
+    ## Multiple R-squared:  0.009499,   Adjusted R-squared:  -0.04003 
+    ## F-statistic: 0.1918 on 1 and 20 DF,  p-value: 0.6661
 
 ``` r
 #Make figures

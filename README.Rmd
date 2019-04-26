@@ -119,7 +119,7 @@ The sampling is very uneven, with few plants sampled in ANZ and YUC. SI genotype
 
 Does this uneven sampling matter? Here, I plot the relationship between genotype frequency at a site and sampling effort (i.e., the number of plants sampled). I also use simple linear models to ask whether genotype frequencies are related to sampling effort.
 
-```{r Data distributions, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
+```{r Data distributions, message=FALSE, warning=FALSE, dpi=600, fig.width=6, fig.height=6}
 
 #Model relationship between CHR frequency and number of plants sampled
 model1 <- lm(`CHR genotype frequency`~CHR_plants_sampled, data=df)
@@ -198,7 +198,7 @@ I corrected for uneven sampling in two ways: 1) by relativizing fitness by divid
 
 First, I need to re-create the original analysis in the paper's Figure 5, to make sure I get the same answer.
 
-```{r Fig5, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
+```{r Fig5, message=FALSE, warning=FALSE, dpi=600, fig.width=6, fig.height=6}
 
 #Model CHR genotype frequency, as in original paper
 model3 <- lm(`CHR genotype frequency`~mean_log10_RGR, data=df)
