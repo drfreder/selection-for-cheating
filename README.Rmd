@@ -3,6 +3,8 @@ title: "Are rhizobia under selection to cheat?"
 author: "Megan Frederickson"
 date: "`r format(Sys.Date())`"
 output: github_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -11,13 +13,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Is there fitness conflict between legumes and rhizobia?
 
-This repository re-analyzes the data in: 
+This repository re-analyzes the data in: Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Interspecific conflict and the evolution of ineffective rhizobia. Ecology Letters. https://doi.org/10.1111/ele.13247
 
-Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Interspecific conflict and the evolution of ineffective rhizobia. Ecology Letters. https://doi.org/10.1111/ele.13247
+The authors make the case that in their legume-rhizobium study system, the rhizobia are selected to cheat. They base this conclusion on a negative correlation between legume and rhizobium fitnesses (their Figure 5).
 
-The authors make the case that in their legume-rhizobium study system, the rhizobia are selected to cheat. In other words, they report a negative correlation between legume and rhizobium fitnesses.
-
-Here, I re-analyze their data to explore how rhizobia were sampled across populations and how rhizobium fitness was measured in nature.
+Here, I re-analyze their data, mostly to explore how they measured rhizobium fitness.
 
 ```{r Load packages, message=FALSE, warning=FALSE, include=FALSE}
 
@@ -30,20 +30,15 @@ library(nlme)
 library(lme4)
 library(emmeans)
 
-
 ```
 
-I downloaded the data from Dryad on April 16, 2019. The citation for the data package is:
-
-Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Data from: Interspecific conflict and the evolution of ineffective rhizobia. Dryad Digital Repository. https://doi.org/10.5061/dryad.cr65269
+I downloaded their data from Dryad on April 16, 2019. The citation for the data package is: Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Data from: Interspecific conflict and the evolution of ineffective rhizobia. Dryad Digital Repository. https://doi.org/10.5061/dryad.cr65269
 
 First we need to read in the data, which is in three different tables in the Dryad package.
 
 ```{r Read in data, message=FALSE, warning=FALSE}
 
 table_S4 <- read_csv("Table_S4.csv", col_types = cols(Strain = col_factor(levels = c("132", "133", "134", "135", "136", "137", "138", "139", "140", "141", "142", "143", "144", "145", "146", "147", "148", "149", "150", "151", "152", "153", "154", "155", "156", "157", "158", "159", "160", "161", "control")), `Host Line` = col_factor(levels = c("BMR01.03", "BMR07.03", "UnH: Cla12.04", "UnL: Anz13.04", "A. heermannii", "Gri01.01", "Gri01.13", "Cla10.01", "Cla01.04", "UCR02.07", "UCR09.05", "Yuc02.07", "Yuc02.01", "Anz11.01", "Anz10.01")), Block = col_factor(levels = c("1", "2", "3", "4", "5")), `CHR local abundance` = col_number(), `Mean individual  nodule biomass (mg)` = col_number(), `Mineral N (ppm)` = col_number(), `Plant #` = col_number(), Population = col_factor(levels = c("ANZ",  "BMR", "CLA", "GRI", "UCR", "YUC")), `Relative Growth` = col_number(), `Roots mass (g)` = col_number(), `Shoots mass (g)` = col_number(), `Total N (%)` = col_number(), `Total nodules` = col_number()))
-table_S4 <- subset(table_S4, `Shoots mass (g)` != "DEAD") #Exclude dead plants
-table_S4 <- subset(table_S4, Strain != "control") #Exclude inoculated controls
   
 table_S1 <- read_csv("Table_S1.csv", col_names = c("Full_Strain_Name", "Year", "Population", "glnII_Haplotype", "recA_Haplotype", "nodZ_Haplotype",  "nolL_Haplotype"), col_types = cols(Year = col_number(), Population = col_factor(levels = c("ANZ",  "BMR", "CLA", "GRI", "UCR", "YUC"))), skip = 1)
 
@@ -51,14 +46,36 @@ table_S2 <- read_csv("Table_S2.csv", col_names = c("Strain", "Full_Strain_Name",
 
 ```
 
-Next, we need to wrangle the data into a single dataframe.
+Next, we need to clean up the data and wrangle it into a single dataframe.
 
 ```{r Wrangle data, message=FALSE, warning=FALSE}
+
+#There is an issue with the "Relative Growth" column in the Dryad version of Table S4
+#Values are hundreds or thousands, but inoculated plants did not grow 100-1000x more than controls
+#In fact, the x-axis of Figure 5 in the original paper shows values from ~0.5-1.2 on a log scale
+#So real values should be on the order of ~1-100x
+#As a result, I recalculated Relative Growth Rate (RGR) from scratch
+#I followed the methods described in the original paper, attempting to match the original analysis
+table_S4$pop_block <- paste0(table_S4$Block, table_S4$`Host Line`) #Make a unique identifier for each block-host line combination
+table_S4$Plant_biomass <- table_S4$`Shoots mass (g)`+table_S4$`Roots mass (g)` #Sum root and shoot mass
+tmp <- subset(table_S4, Strain == "control") #Subset control plants only
+table_S4 <- merge(table_S4, tmp[, c(1, 17, 18)], by="pop_block") #Match inoculated plants to controls based on which block and host line they were
+
+#The footnotes for Table 1 in the original paper says when controls were substituted, so I follow suit here
+table_S4[table_S4$`Plant #.y` == 111, 20] <- table_S4[table_S4$`Plant #.y` == 106, 20] #Sub 106 for 111
+table_S4[table_S4$`Plant #.y` == 222, 20] <- table_S4[table_S4$`Plant #.y` == 216, 20] #Sub 216 for 222
+table_S4[table_S4$`Plant #.y` == 669, 20] <- mean(c(unique(table_S4[table_S4$`Plant #.y` == 651, 20]), unique(table_S4[table_S4$`Plant #.y` == 660, 20]), unique(table_S4[table_S4$`Plant #.y` == 663, 20]), unique(table_S4[table_S4$`Plant #.y` == 680, 20]), unique(table_S4[table_S4$`Plant #.y` == 684, 20]))) #Sub mean of 651, 660, 663, 680, and 684 for 669
+
+table_S4 <- subset(table_S4, `Shoots mass (g)` != "DEAD") #Exclude dead plants, as per paper
+table_S4 <- subset(table_S4, Strain != "control") #Exclude uninoculated controls, as per paper
+table_S4 <- subset(table_S4, `Total nodules` > 0) #Exclude inoculated plants that formed no nodules, as per paper
+table_S4$RGR <- table_S4$Plant_biomass.x/table_S4$Plant_biomass.y #Re-calculate RGR (values look better)
+table_S4$logRGR <- log10(table_S4$RGR) #Log-transform RGR, as per paper
 
 table_S1$SI_haplotype <- paste0(table_S1$nodZ_Haplotype, "_", table_S1$nolL_Haplotype) #Concatenate SI haplotypes, as per paper
 table_S1$CHR_haplotype <- paste0(table_S1$glnII_Haplotype, "_", table_S1$recA_Haplotype) #Concatenate CHR haplotypes, as per paper
 
-table_S2$Population <- ifelse(table_S2$Population == "Bodega Marine Reserve", "BMR", ifelse(table_S2$Population == "Griffith Park", "GRI", ifelse(table_S2$Population == "Robert J. Bernard Biological Field Station", "CLA", ifelse(table_S2$Population == "University of California Riverside", "UCR", ifelse(table_S2$Population == "Anza Borrego Desert State Park", "ANZ", "YUC"))))) #Abbreviate Table_S2 population names
+table_S2$Population <- ifelse(table_S2$Population == "Bodega Marine Reserve", "BMR", ifelse(table_S2$Population == "Griffith Park", "GRI", ifelse(table_S2$Population == "Robert J. Bernard Biological Field Station", "CLA", ifelse(table_S2$Population == "University of California Riverside", "UCR", ifelse(table_S2$Population == "Anza Borrego Desert State Park", "ANZ", "YUC"))))) #Abbreviate Table_S2 population names, to make them match across data tables
 
 table_S1$Plant_ID <- gsub('R.*', "", (toupper(gsub('_.*', "", table_S1$Full_Strain_Name)))) #Make a column of unique plant ids
 
@@ -68,27 +85,27 @@ table_S1.long <- subset(subset(table_S1.long, haplotype != "n/an/a"), haplotype 
 table_S1.long <- subset(table_S1.long, locus == "SI_haplotype" | locus == "CHR_haplotype") #Subset to just CHR and SI haplotypes
 
 #Calculate nodules and plants sampled per population
-new.table <- table_S1.long %>% group_by(Population, locus) %>% summarize(total_nods_sampled=n(), total_plants_sampled=length(unique(Plant_ID)))
+new.table <- table_S1.long %>% group_by(Population, locus) %>% summarize(total_nods_sampled=n(), total_plants_sampled=length(unique(Plant_ID))) #Summarize data by locus and population
 new.table.long <- merge(subset(new.table, locus == "SI_haplotype"), subset(new.table, locus == "CHR_haplotype"), by="Population") #Make wide data long
 new.table.long <- new.table.long[, c(1,3,4,6,7)]
 colnames(new.table.long) <- c("Population", "SI_nods_sampled", "SI_plants_sampled", "CHR_nods_sampled", "CHR_plants_sampled")
 
 #Merge number of nodules and plants sampled with Table S2 data
-table_S2 <- merge(table_S2, new.table.long, by="Population", all.x = TRUE)
+table_S2 <- merge(table_S2, new.table.long, by="Population", all.x = TRUE) #Add sampling effort to Table 2
 
 #Calculate strain means in Table S4
-#These should really be predicted from a linear mixed model using the emmeans package
-#But I think the original paper just used raw averages, so I do so here too
+#These should really be predicted from a linear mixed model using something like the emmeans package
+#But the original paper says they just used raw averages, so I do so here too
 #Also, because the paper calculated strain means just on sympatric host lines, I do the same here
-new.table2 <- subset(table_S4, `Host Line` != "A. heermannii" & `Host Line` != "UnH: Cla12.04" & `Host Line` != "UnL: Anz13.04") %>% group_by(Population, Strain) %>% summarize(mean_RGR = mean(`Relative Growth`, na.rm=TRUE), mean_total_nodules = mean(`Total nodules`, na.rm=TRUE), mean_nodule_mass = mean(`Mean individual  nodule biomass (mg)`, na.rm=TRUE))
+data_sym <- subset(table_S4, `Host Line` != "A. heermannii" & `Host Line` != "UnH: Cla12.04" & `Host Line` != "UnL: Anz13.04")
+new.table2 <- data_sym %>% group_by(Population, Strain) %>% summarize(mean_RGR = mean(`Relative Growth`, na.rm=TRUE), mean_total_nodules = mean(`Total nodules`, na.rm=TRUE), mean_nodule_mass = mean(`Mean individual  nodule biomass (mg)`, na.rm=TRUE), mean_log10_RGR = mean(logRGR, na.rm=TRUE)) #Calculate means
 
 #Merge data in Tables S2 and S4 into a single data frame
-df <- merge(table_S2, new.table2[ ,2:5], by="Strain")
+df <- merge(table_S2, new.table2[ ,2:6], by="Strain") #Merge everything into a single data frame
 
 ```
 
 ## How many nodules and plants were sampled per site?
-The sampling is uneven, with few plants sampled in ANZ and YUC.
 
 ```{r Sampling, message=FALSE, warning=FALSE}
 colnames(new.table) <- c("Population", "Locus", "Nodules sampled (no.)", "Plants sampled (no.)")
@@ -96,96 +113,41 @@ new.table$Locus <- gsub("_haplotype", "", new.table$Locus)
 kable(new.table)
 ```
 
+The sampling is very uneven, with few plants sampled in ANZ and YUC. SI genotype frequencies are calculated from just 2 plants at YUC, and CHR genotype frequencies are calculated from just 4 plants at ANZ and 7 plants at YUC.
+
 ## Plot sampling of CHR and SI frequencies 
+
+Does this uneven sampling matter? Here, I plot the relationship between genotype frequency at a site and sampling effort (i.e., the number of plants sampled). I also use simple linear models to ask whether genotype frequencies are related to sampling effort.
 
 ```{r Data distributions, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
 
 #Model relationship between CHR frequency and number of plants sampled
 model1 <- lm(`CHR genotype frequency`~CHR_plants_sampled, data=df)
-summary(model1)
-
-CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_plants_sampled, color=Population))+geom_point()+ geom_smooth(method="lm", se=FALSE, color=1)+xlab("Plants sampled (no.)")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)
+summary(model1) #Significant correlation 
 
 #Model relationship between SI frequency and number of plants sampled
 model2 <- lm(`SI genotype frequency`~SI_plants_sampled, data=df)
-summary(model2)
+summary(model2) #Significant correlation
 
-SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=SI_plants_sampled, color=Population)) +geom_smooth(method="lm", se=FALSE, color=1)+geom_point()+xlab("Plants sampled (no.)")+ylab("SI genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)
+#Make figures
+CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_plants_sampled, color=Population))+geom_point()+ geom_smooth(method="lm", se=TRUE, color=1)+xlab("Plants sampled (no.)")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+scale_x_continuous(limits=c(0, 35))+theme(legend.position = c(0.7,0.7))
 
-fig1 <- plot_grid(CHR, SI, nrow=2, labels="auto")
-save_plot("Fig1.png", fig1, base_width=8, base_height=8)
-fig1
+SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=SI_plants_sampled, color=Population)) +geom_smooth(method="lm", se=TRUE, color=1)+geom_point()+xlab("Plants sampled (no.)")+ylab("SI genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+scale_x_continuous(limits=c(0, 23))+guides(color=FALSE)
 
-```
-
-## Re-create original Fig. 5 from paper
-
-```{r Fig5, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
-
-model3 <- lm(`CHR genotype frequency`~log10(mean_RGR), data=df)
-summary(model3) #Numbers don't match paper, but qualitative pattern is the same
-
-orig.fig5.CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=mean_RGR, color=Population))+geom_smooth(method="lm", se=FALSE, color=1)+geom_point()+xlab("Symbiotic effectiveness")+ylab("CHR genotype frequency")+scale_x_log10()+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)
-
-model4 <- lm(`SI genotype frequency`~log10(mean_RGR), data=df)
-summary(model4) #Numbers don't match paper, but qualitative pattern is the same
-
-orig.fig5.SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=mean_RGR, color=Population)) +geom_smooth(method="lm", se=FALSE, color=1)+geom_point()+xlab("Symbiotic effectiveness")+ylab("SI genotype frequency")+scale_x_log10()+ geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)
-
-orig.fig5 <-plot_grid(orig.fig5.CHR, orig.fig5.SI, nrow=2, labels="auto")
-orig.fig5
-
-```
-
-## Relative fitness within populations 
-
-Ideally, to compare across studies, fitness measures, and traits, we should calculate selection gradients in the standard way, as we would for any continuous phenotype. Normally, fitness is relativized by dividing by population mean fitness, and traits are standardized by subtracting the mean and dividing by the standard deviation. This allows comparisons of the strength of selection across analyses because everything is on a common scale. 
-
-Here, I first use the same strain means for relative growth as above, but also then standardize them by substracting the mean and dividing by the SD. Either way, the relationship between genotype frequency and symbiotic effectiveness is non-significant once fitness is relativized within each population.
-
-```{r Relative fitness and standardize traits, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
-
-#Calculate mean fitness for each population
-tmp <- df %>% group_by(Population) %>% summarize(pop_mean_CHR=mean(as.numeric(`CHR genotype frequency`), na.rm=TRUE), pop_mean_SI=mean(as.numeric(`SI genotype frequency`), na.rm=TRUE))
-df <- merge(df, tmp, by="Population") #Merge data frames
-df$CHR_std <- as.numeric(df$`CHR genotype frequency`)/df$pop_mean_CHR #Relative fitness within each population
-df$SI_std <- as.numeric(df$`SI genotype frequency`)/df$pop_mean_SI #Relative fitness within each population
-df$RGR_std <- (df$mean_RGR - mean(df$mean_RGR, na.rm=TRUE))/sd(df$mean_RGR, na.rm=TRUE) #Standardize trait by subtracting the mean and dividing by the standard deviation
-
-#Relativized CHR and unstandardized RGR
-model5 <- lm(CHR_std~log10(mean_RGR), data=df)
-summary(model5)
-
-#Relativized CHR and standardized RGR
-model6 <- lm(CHR_std~RGR_std, data=df)
-summary(model6)
-
-#Relativized SI and unstandardized RGR
-model7 <- lm(SI_std~log10(mean_RGR), data=df) 
-summary(model7)
-
-#Relativized SI and standardized RGR
-model8 <- lm(SI_std~RGR_std, data=df) 
-summary(model8)
-
-new.Fig5.SI.unstandardized <- ggplot(data=df, aes(y=SI_std, x=mean_RGR, color=Population))+geom_point()+geom_smooth(method="lm", se=FALSE, linetype="dashed", color=1)+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+ ylab("SI genotype frequency")+  xlab("Symbiotic effectiveness")+scale_x_log10()
-
-new.Fig5.CHR.unstandardized <- ggplot(data=df, aes(y=CHR_std, x=mean_RGR, color=Population))+ geom_point()+geom_smooth(method="lm", se=FALSE, linetype="dashed", color=1)+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3)+ylab("CHR genotype frequency")+xlab("Symbiotic effectiveness")+scale_x_log10()
-
-new.Fig5 <- plot_grid(new.Fig5.CHR.unstandardized, new.Fig5.SI.unstandardized, nrow=2, labels="auto")
-new.Fig5
-
+fig <- plot_grid(CHR, SI, nrow=2, labels="auto") #Show figure
+fig
 ```
 
 ## Rarefaction analysis of haplotypes sampled at field sistes
 
+Here, I use standard methods from community ecology to explore whether rhizobia genotypes were adequately sampled at the six field sites.  
+
 ```{r Rarefaction, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
 
-library(vegan)
+library(vegan) #Load libaries with rarefaction functions
 library(labdsv)
 
-#Create unique population-plant identifier
-table_S1$pop_plant <- paste0(table_S1$Population, table_S1$Plant_ID)
+table_S1$pop_plant <- paste0(table_S1$Population, table_S1$Plant_ID) #Create unique population-plant identifier
   
 #Transform Table S1 data into a community matrix, in which columns are SI or CHR haplotypes and rows are plants
 SI_matrix <- table_S1[, c(9,11)] %>% group_by(pop_plant, SI_haplotype) %>% count(SI_haplotype)
@@ -217,15 +179,176 @@ SI.accum$Population <- factor(SI.accum$Population, levels=c("ANZ", "BMR", "CLA",
 CHR.accum <- rbind(data.frame(plants=CHR.accum.YUC$sites, richness=CHR.accum.YUC$richness, SD=CHR.accum.YUC$sd, Population="YUC"), data.frame(plants=CHR.accum.UCR$sites, richness=CHR.accum.UCR$richness, SD=CHR.accum.UCR$sd, Population="UCR"), data.frame(plants=CHR.accum.GRI$sites, richness=CHR.accum.GRI$richness, SD=CHR.accum.GRI$sd, Population="GRI"), data.frame(plants=CHR.accum.ANZ$sites, richness=CHR.accum.ANZ$richness, SD=CHR.accum.ANZ$sd, Population="ANZ"), data.frame(plants=CHR.accum.BMR$sites, richness=CHR.accum.BMR$richness, SD=CHR.accum.BMR$sd, Population="BMR"), data.frame(plants=CHR.accum.CLA$sites, richness=CHR.accum.CLA$richness, SD=CHR.accum.CLA$sd, Population="CLA"))
 CHR.accum$Population <- factor(CHR.accum$Population, levels=c("ANZ", "BMR", "CLA", "GRI", "UCR", "YUC"))
 
-#Plot species accumulation curves
-SI.accum.curve <- ggplot(data=SI.accum, aes(x=plants, y=richness, color=Population))+geom_point()+geom_line()+geom_errorbar(aes(x=plants, ymin=richness-SD, ymax=richness+SD), alpha=0.5, width=0.1)+xlab("Plants sampled (no.)")+ylab("Unique SI genotypes (no.)")
+#Plot 'genotype accumulation' curves
+SI.accum.curve <- ggplot(data=SI.accum, aes(x=plants, y=richness, color=Population))+geom_point()+geom_line()+geom_errorbar(aes(x=plants, ymin=richness-SD, ymax=richness+SD), alpha=0.5, width=0.1)+xlab("Plants sampled (no.)")+ylab("Unique SI genotypes (no.)")+scale_x_continuous(limits=c(0, 23))+guides(color=FALSE)
 
-CHR.accum.curve <- ggplot(data=CHR.accum, aes(x=plants, y=richness, color=Population))+geom_point()+geom_line()+geom_errorbar(aes(x=plants, ymin=richness-SD, ymax=richness+SD), alpha=0.5, width=0.1)+xlab("Plants sampled (no.)")+ylab("Unique CHR genotypes (no.)")
-
-#Make figure
-fig2 <- plot_grid(CHR.accum.curve, SI.accum.curve, nrow=2, labels="auto")
-save_plot("Fig2.png", fig2, base_width=8, base_height=8)
-fig2
+CHR.accum.curve <- ggplot(data=CHR.accum, aes(x=plants, y=richness, color=Population))+geom_point()+geom_line()+geom_errorbar(aes(x=plants, ymin=richness-SD, ymax=richness+SD), alpha=0.5, width=0.1)+xlab("Plants sampled (no.)")+ylab("Unique CHR genotypes (no.)")+scale_x_continuous(limits=c(0, 35))+guides(color=FALSE)
  
+#Combine with previous figures to make full figure for paper
+fig1 <- plot_grid(CHR, SI, CHR.accum.curve, SI.accum.curve, nrow=2, ncol=2, labels="auto")
+fig1
+save_plot("Fig1.png", fig1, base_width=8, base_height=8)
 ```
+
+## How does uneven sampling among sites affect the results?
+
+I corrected for uneven sampling in two ways: 1) by relativizing fitness by dividing by the population mean, and 3) by sub-sampling the data for each population to the smallest sample sizes, and re-calculating genotype frequencies. Then I re-analyzed the relationship between strain frequency and symbiotic effectiveness (i.e., what appears in the original paper's Figure 5) using simple linear models. 
+
+## Method 1: Relativize fitness within populations
+
+First, we need to re-create the original analysis in the paper's Figure 5, to make sure I get the same answer.
+
+```{r Fig5, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
+
+#Model CHR genotype frequency, as in original paper
+model3 <- lm(`CHR genotype frequency`~mean_log10_RGR, data=df)
+summary(model3) #Numbers match paper!
+Anova(model3) #Numbers match paper!
+
+#Model SI genotype frequency, as in original paper
+model4 <- lm(`SI genotype frequency`~mean_log10_RGR, data=df)
+summary(model4) #Numbers match paper
+Anova(model4) #Numbers match paper
+
+#Make my own version of the authors' Figure 5
+orig.fig5.CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=mean_log10_RGR, color=Population))+geom_smooth(method="lm", color=1)+geom_point()+xlab("Symbiotic effectiveness")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, check_overlap=TRUE)+theme(legend.position = c(0.7, 0.7))
+
+orig.fig5.SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=mean_log10_RGR, color=Population)) +geom_smooth(method="lm", color=1)+geom_point()+xlab("Symbiotic effectiveness")+ylab("SI genotype frequency")+ geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5,  check_overlap=TRUE)+guides(color=FALSE)
+
+orig.fig5 <-plot_grid(orig.fig5.CHR, orig.fig5.SI, nrow=2, labels="auto")
+orig.fig5 #Hmm ... very close, but not exactly the same
+
+```
+
+## Relative fitness within populations 
+
+Ideally, to compare across studies, fitness measures, and traits, we should calculate selection gradients in the standard way, as we would for any continuous phenotype. Normally, fitness is relativized by dividing by population mean fitness, and traits are standardized by subtracting the mean and dividing by the standard deviation. This allows comparisons of the strength of selection across analyses because everything is on a common scale. 
+
+Here, I first relativize fitness within populations by dividing by population mean fitness (i.e., population mean strain frequency). Then I use the same strain means for relative growth as above in one analysis, and then also  standardize strain means by substracting the mean and dividing by the SD in a second analysis. Either way, the relationship between genotype frequency and symbiotic effectiveness is non-significant (for both CHR and SI) once fitness is relativized within each population. The only difference that standardizing the trait data makes is to generate an estimate of the strength of selection (i.e., beta) that is interpretable relative to other studies. It does not change R-squared or p values. 
+
+```{r Relative fitness and standardize traits, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
+
+tmp <- df %>% group_by(Population) %>% summarize(pop_mean_CHR=mean(as.numeric(`CHR genotype frequency`), na.rm=TRUE), pop_mean_SI=mean(as.numeric(`SI genotype frequency`), na.rm=TRUE)) #Calculate mean fitness for each population
+df <- merge(df, tmp, by="Population") #Merge data frames
+df$CHR_std <- df$`CHR genotype frequency`/df$pop_mean_CHR #Relative fitness within each population
+df$SI_std <- df$`SI genotype frequency`/df$pop_mean_SI #Relative fitness within each population
+df$RGR_std <- (df$mean_log10_RGR - mean(df$mean_log10_RGR, na.rm=TRUE))/sd(df$mean_log10_RGR, na.rm=TRUE) #Standardize trait by subtracting the mean and dividing by the standard deviation
+
+#Model relativized CHR and unstandardized RGR
+model5 <- lm(CHR_std~mean_log10_RGR, data=df)
+summary(model5) #Non-significant
+
+#Model relativized CHR and standardized RGR
+model6 <- lm(CHR_std~RGR_std, data=df)
+summary(model6) #Non-significant
+
+#Model relativized SI and unstandardized RGR
+model7 <- lm(SI_std~mean_log10_RGR, data=df) 
+summary(model7) #Non-significant
+
+#Relativized SI and standardized RGR
+model8 <- lm(SI_std~RGR_std, data=df) 
+summary(model8) #Non-significant
+
+#Make new versions of Figure 5
+new.Fig5.CHR.unstandardized <- ggplot(data=df, aes(y=CHR_std, x=mean_log10_RGR, color=Population))+ geom_point()+geom_smooth(method="lm", se=TRUE, linetype="dotted", color="grey")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+ylab("CHR genotype frequency")+xlab("Symbiotic effectiveness")+guides(color=FALSE)
+
+new.Fig5.SI.unstandardized <- ggplot(data=df, aes(y=SI_std, x=mean_log10_RGR, color=Population))+geom_point()+geom_smooth(method="lm", se=TRUE, linetype="dotted", color="grey")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+ ylab("SI genotype frequency")+ xlab("Symbiotic effectiveness")+guides(color=FALSE)
+
+new.Fig5ab <- plot_grid(new.Fig5.CHR.unstandardized, new.Fig5.SI.unstandardized, nrow=2, labels="auto")
+new.Fig5ab
+
+```
+
+## Method 2: Down-sample each population to minimum sample sizes and re-calculate genotype frequencies
+
+Finally, I down-sampled each population 100 times to either 2 or 4 plants for SI and CHR, respectively, as these were the minimum number of plants sampled per population to calculate SI or CHR frequencies, and then I recalculated genotype frequencies. For each population, I took the mean genotype frequency across the 100 iterations and re-analyzed the relationship between genotype frequency and symbiotic effectiveness. Again, the relationships were never significatnt after accounting for uneven sampling. 
+
+```{r Downsample, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
+
+#I did this separately for CHR and SI genotype frequencies
+#CHR first
+CHR.min <- 4 #Minimum number of plants sampled (in ANZ population)
+pop <- c("UCR", "CLA", "GRI", "BMR", "YUC", "ANZ") #Create vector of population names
+df.CHR <- data.frame(Population=character(), haplotype = character(), n=double(), tot_n=double(), freq=double(), stringsAsFactors=FALSE) #Initialize empty frame to store all the sub-sampled data in
+
+#Two for loops that loop through 100 iterations for each population
+for (i in 1:6) {
+  tmp.pop <- pop[i]
+for (j in 1:500) {
+  tmp <- subset(table_S1, Population == tmp.pop)
+  tmp.plants <- sample(unique(tmp$Plant_ID), CHR.min, replace = FALSE)
+  tmp.data <- subset(tmp, tmp$Plant_ID %in% tmp.plants)
+  tmp.data.long <- gather(tmp.data, locus, haplotype, glnII_Haplotype:CHR_haplotype, factor_key=TRUE)
+  tmp.data.long <- subset(tmp.data.long, locus == "CHR_haplotype")
+  tmp.data.long <- subset(subset(tmp.data.long, haplotype != "n/an/a"), haplotype != "n/a_n/a")
+  tmp2 <- tmp.data.long %>% group_by(Population, haplotype) %>% summarize(n=n())
+  tmp2$tot_n <- length(tmp.data.long$haplotype)
+  tmp2$freq <- tmp2$n/tmp2$tot_n
+  df.CHR<-rbind(df.CHR, as.data.frame(tmp2))
+  }
+}
+
+#Merge re-sampled and original data by CHR haplotype and population
+df$popCHR <- paste0(df$Population, df$CHR_Haplotype)
+df.CHR$popCHR <- paste0(df.CHR$Population, df.CHR$haplotype)
+df.CHR <- merge(df.CHR, df, by="popCHR")
+
+#Calculate mean genotype frequencies per strain from 100 iterations
+CHR.sum <- df.CHR %>% group_by(Population.x, haplotype) %>% summarize(n=n(), mean_CHR_freq=mean(freq, na.rm=TRUE), sd=sd(freq, na.rm=TRUE), se=sd/sqrt(n))
+CHR.sum$popCHR <- paste0(CHR.sum$Population.x, CHR.sum$haplotype)
+CHR.sum <- merge(CHR.sum, df, by="popCHR")
+
+#Now SI 
+SI.min <- 2 #Minimum number of plants sampled (in YUC population)
+df.SI <- data.frame(Population=character(), haplotype = character(), n=double(), tot_n=double(), freq=double(), stringsAsFactors=FALSE) #Initialize empty frame to store all the sub-sampled data in
+
+#Again, two for loops that loop through 100 iterations for each population
+for (i in 1:6) {
+  tmp.pop <- pop[i]
+  for (j in 1:100) {
+  tmp <- subset(table_S1, Population == tmp.pop & SI_haplotype != "n/a_n/a")
+  tmp.plants <- sample(unique(tmp$Plant_ID), SI.min, replace = FALSE)
+  tmp.data <- subset(tmp, tmp$Plant_ID %in% tmp.plants)
+  tmp.data.long <- gather(tmp.data, locus, haplotype, glnII_Haplotype:CHR_haplotype, factor_key=TRUE)
+  tmp.data.long <- subset(tmp.data.long, locus == "SI_haplotype")
+  tmp.data.long <- subset(subset(tmp.data.long, haplotype != "n/an/a"), haplotype != "n/a_n/a")
+  tmp2 <- tmp.data.long %>% group_by(Population, haplotype) %>% summarize(n=n())
+  tmp2$tot_n <- length(tmp.data.long$haplotype)
+  tmp2$freq <- tmp2$n/tmp2$tot_n
+  df.SI<-rbind(df.SI, as.data.frame(tmp2))
+  }
+}
+  
+#Merge re-sampled and original data by SI haplotype and population
+df$popSI <- paste0(df$Population, df$SI_haplotye)
+df.SI$popSI <- paste0(df.SI$Population, df.SI$haplotype)
+df.SI <- merge(df.SI, df, by="popSI")
+
+#Calculate mean genotype frequencies per strain from 100 iterations
+SI.sum <- df.SI %>% group_by(Population.x, haplotype) %>% summarize(n=n(), mean_SI_freq=mean(freq, na.rm=TRUE), sd=sd(freq, na.rm=TRUE), se=sd/sqrt(n))
+SI.sum$popSI <- paste0(SI.sum$Population.x, SI.sum$haplotype)
+SI.sum <- merge(SI.sum, df, by="popSI")
+
+#Fit model for mean CHR genotype frequency from re-sampling and RGR
+model9 <- lm(mean_CHR_freq~mean_log10_RGR, data=CHR.sum)
+summary(model9) #Non-significant
+
+#Fit model for mean SI genotype frequency from re-sampling and RGR
+model10 <- lm(mean_SI_freq~mean_log10_RGR, data=SI.sum)
+summary(model10) #Non-significant
+
+#Make figures
+new.Fig5.CHR.downsampled <-ggplot(data=CHR.sum, aes(x=mean_log10_RGR, y=mean_CHR_freq, color=Population.x))+
+geom_point()+geom_smooth(method="lm", linetype="dotted", color="grey")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+ylab("CHR genotype frequency")+xlab("Symbiotic effectiveness")+guides(color=FALSE)
+
+new.Fig5.SI.downsampled <-ggplot(data=SI.sum, aes(x=mean_log10_RGR, y=mean_SI_freq, color=Population.x))+
+geom_point()+geom_smooth(method="lm", linetype="dotted", color="grey")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+ylab("SI genotype frequency")+xlab("Symbiotic effectiveness")+guides(color=FALSE)
+
+full.new.Fig5 <- plot_grid(new.Fig5.CHR.unstandardized, new.Fig5.SI.unstandardized, new.Fig5.CHR.downsampled, new.Fig5.SI.downsampled, nrow=2, ncol=2, labels="auto")
+full.new.Fig5
+save_plot("Fig2.png", full.new.Fig5, base_width=8, base_height=8)
+  
+```
+
 
