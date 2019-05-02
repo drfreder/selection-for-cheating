@@ -103,6 +103,9 @@ new.table2 <- data_sym %>% group_by(Population, Strain) %>% summarize(mean_RGR =
 #Merge data in Tables S2 and S4 into a single data frame
 df <- merge(table_S2, new.table2[ ,2:6], by="Strain") 
 
+#For later, set font size for text in figure axis labels
+x=12
+
 ```
 
 ## How many nodules and plants were sampled per site?
@@ -130,9 +133,9 @@ model2 <- lm(`SI genotype frequency`~SI_plants_sampled, data=df)
 summary(model2) #Significant correlation
 
 #Make figures
-CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_plants_sampled, color=Population))+geom_point()+ geom_smooth(method="lm", se=TRUE, color=1)+xlab("Plants sampled (no.)")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+scale_x_continuous(limits=c(0, 35))+theme(legend.position = c(0.7,0.7), legend.text=element_text(size=8), legend.title =element_text(size=8))
+CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_plants_sampled, color=Population))+geom_point()+ geom_smooth(method="lm", se=TRUE, color=1)+xlab("Plants sampled (no.)")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+scale_x_continuous(limits=c(0, 35))+theme(legend.position = c(0.7,0.7), legend.text=element_text(size=8), legend.title =element_text(size=8))+  theme(axis.title=element_text(size=x))
 
-SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=SI_plants_sampled, color=Population)) +geom_smooth(method="lm", se=TRUE, color=1)+geom_point()+xlab("Plants sampled (no.)")+ylab("SI genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+scale_x_continuous(limits=c(0, 23))+guides(color=FALSE)
+SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=SI_plants_sampled, color=Population)) +geom_smooth(method="lm", se=TRUE, color=1)+geom_point()+xlab("Plants sampled (no.)")+ylab("SI genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+scale_x_continuous(limits=c(0, 23))+guides(color=FALSE)+  theme(axis.title=element_text(size=x))
 
 fig.plants <- plot_grid(CHR, SI, nrow=2, labels="auto") 
 fig.plants #Show figure
@@ -181,9 +184,9 @@ CHR.accum <- rbind(data.frame(plants=CHR.accum.YUC$sites, richness=CHR.accum.YUC
 CHR.accum$Population <- factor(CHR.accum$Population, levels=c("ANZ", "BMR", "CLA", "GRI", "UCR", "YUC"))
 
 #Plot 'genotype accumulation' curves
-SI.accum.curve <- ggplot(data=SI.accum, aes(x=plants, y=richness, color=Population))+geom_point()+geom_line()+geom_errorbar(aes(x=plants, ymin=richness-SD, ymax=richness+SD), alpha=0.5, width=0.1)+xlab("Plants sampled (no.)")+ylab("Unique SI genotypes (no.)")+scale_x_continuous(limits=c(0, 23))+guides(color=FALSE)
+SI.accum.curve <- ggplot(data=SI.accum, aes(x=plants, y=richness, color=Population))+geom_point()+geom_line()+geom_errorbar(aes(x=plants, ymin=richness-SD, ymax=richness+SD), alpha=0.5, width=0.1)+xlab("Plants sampled (no.)")+ylab("Unique SI genotypes (no.)")+scale_x_continuous(limits=c(0, 23))+guides(color=FALSE)+  theme(axis.title=element_text(size=x))
 
-CHR.accum.curve <- ggplot(data=CHR.accum, aes(x=plants, y=richness, color=Population))+geom_point()+geom_line()+geom_errorbar(aes(x=plants, ymin=richness-SD, ymax=richness+SD), alpha=0.5, width=0.1)+xlab("Plants sampled (no.)")+ylab("Unique CHR genotypes (no.)")+scale_x_continuous(limits=c(0, 35))+guides(color=FALSE)
+CHR.accum.curve <- ggplot(data=CHR.accum, aes(x=plants, y=richness, color=Population))+geom_point()+geom_line()+geom_errorbar(aes(x=plants, ymin=richness-SD, ymax=richness+SD), alpha=0.5, width=0.1)+xlab("Plants sampled (no.)")+ylab("Unique CHR genotypes (no.)")+scale_x_continuous(limits=c(0, 35))+guides(color=FALSE)+  theme(axis.title=element_text(size=x))
  
 fig.accum <- plot_grid(CHR.accum.curve, SI.accum.curve, nrow=2, labels="auto")
 fig.accum
@@ -210,9 +213,9 @@ summary(model4) #Numbers match paper
 Anova(model4) #Numbers match paper
 
 #Make my own version of the authors' Figure 5
-orig.fig5.CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=mean_log10_RGR, color=Population))+geom_smooth(method="lm", color=1)+geom_point()+xlab("Symbiotic effectiveness")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, check_overlap=TRUE)+theme(legend.position = c(0.7, 0.7))
+orig.fig5.CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=mean_log10_RGR, color=Population))+geom_smooth(method="lm", color=1)+geom_point()+xlab("Symbiotic effectiveness")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, check_overlap=TRUE)+theme(legend.position = c(0.7, 0.7))+  theme(axis.title=element_text(size=x))
 
-orig.fig5.SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=mean_log10_RGR, color=Population)) +geom_smooth(method="lm", color=1)+geom_point()+xlab("Symbiotic effectiveness")+ylab("SI genotype frequency")+ geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5,  check_overlap=TRUE)+guides(color=FALSE)
+orig.fig5.SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=mean_log10_RGR, color=Population)) +geom_smooth(method="lm", color=1)+geom_point()+xlab("Symbiotic effectiveness")+ylab("SI genotype frequency")+ geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5,  check_overlap=TRUE)+guides(color=FALSE)+  theme(axis.title=element_text(size=x))
 
 orig.fig5 <-plot_grid(orig.fig5.CHR, orig.fig5.SI, nrow=2, labels="auto")
 orig.fig5 #Hmm ... very close, but not exactly the same
@@ -250,9 +253,9 @@ model8 <- lm(SI_std~RGR_std, data=df)
 summary(model8) #Non-significant
 
 #Make new versions of Figure 5
-new.Fig5.CHR.unstandardized <- ggplot(data=df, aes(y=CHR_std, x=mean_log10_RGR, color=Population))+ geom_point()+geom_smooth(method="lm", se=TRUE, linetype="dotted", color="grey")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+ylab("CHR genotype frequency")+xlab("Symbiotic effectiveness")+guides(color=FALSE)
+new.Fig5.CHR.unstandardized <- ggplot(data=df, aes(y=CHR_std, x=mean_log10_RGR, color=Population))+ geom_point()+geom_smooth(method="lm", se=TRUE, linetype="dotted", color="grey")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+ylab("CHR genotype frequency")+xlab("Symbiotic effectiveness")+guides(color=FALSE)+  theme(axis.title=element_text(size=x))
 
-new.Fig5.SI.unstandardized <- ggplot(data=df, aes(y=SI_std, x=mean_log10_RGR, color=Population))+geom_point()+geom_smooth(method="lm", se=TRUE, linetype="dotted", color="grey")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+ ylab("SI genotype frequency")+ xlab("Symbiotic effectiveness")+guides(color=FALSE)
+new.Fig5.SI.unstandardized <- ggplot(data=df, aes(y=SI_std, x=mean_log10_RGR, color=Population))+geom_point()+geom_smooth(method="lm", se=TRUE, linetype="dotted", color="grey")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+ ylab("SI genotype frequency")+ xlab("Symbiotic effectiveness")+guides(color=FALSE)+  theme(axis.title=element_text(size=x))
 
 new.Fig5ab <- plot_grid(new.Fig5.CHR.unstandardized, new.Fig5.SI.unstandardized, nrow=2, labels="auto")
 new.Fig5ab
@@ -340,10 +343,10 @@ summary(model10) #Non-significant
 
 #Make figures
 new.Fig5.CHR.downsampled <-ggplot(data=CHR.sum, aes(x=mean_log10_RGR, y=mean_CHR_freq, color=Population.x))+
-geom_point()+geom_smooth(method="lm", linetype="dotted", color="grey")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+ylab("CHR genotype frequency")+xlab("Symbiotic effectiveness")+guides(color=FALSE)
+geom_point()+geom_smooth(method="lm", linetype="dotted", color="grey")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+ylab("CHR genotype frequency")+xlab("Symbiotic effectiveness")+guides(color=FALSE)+  theme(axis.title=element_text(size=x))
 
 new.Fig5.SI.downsampled <-ggplot(data=SI.sum, aes(x=mean_log10_RGR, y=mean_SI_freq, color=Population.x))+
-geom_point()+geom_smooth(method="lm", linetype="dotted", color="grey")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+ylab("SI genotype frequency")+xlab("Symbiotic effectiveness")+guides(color=FALSE)
+geom_point()+geom_smooth(method="lm", linetype="dotted", color="grey")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=3, check_overlap=TRUE)+ylab("SI genotype frequency")+xlab("Symbiotic effectiveness")+guides(color=FALSE)+  theme(axis.title=element_text(size=x))
 
 full.new.Fig5 <- plot_grid(new.Fig5.CHR.unstandardized, new.Fig5.SI.unstandardized, new.Fig5.CHR.downsampled, new.Fig5.SI.downsampled, nrow=2, ncol=2, labels="auto")
 full.new.Fig5
@@ -355,7 +358,7 @@ save_plot("Fig2.png", full.new.Fig5, base_width=8, base_height=8)
 
 Above, I used the number of plants sampled as a measure of sampling effort. Multiple nodules were sampled per plant, so could each nodule be considered a sample? First, we need to know whether the number of nodules sampled per population is correlated with genotype frequency. The answer is yes, for SI genotype frequency. There is a significant negative correlation between SI genotype frequency and the number of nodules sampled. But the same is not true for CHR genotype frequency. The direction is still negative, but the correlation between CHR genotype frequency and number of nodules sampled is non-significant. 
 
-```{r Nodules as samples}
+```{r Nodules as samples, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=6}
 
 #Model relationship between SI frequency and number of nodules sampled
 model11 <- lm(`SI genotype frequency`~SI_nods_sampled, data=df)
@@ -366,9 +369,9 @@ model12 <- lm(`CHR genotype frequency`~CHR_nods_sampled, data=df)
 summary(model12) #Non-significant correlation
 
 #Make figure
-CHR.nods <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_nods_sampled, color=Population))+geom_point()+ geom_smooth(method="lm", se=TRUE, color="grey", linetype="dotted")+xlab("Nodules sampled (no.)")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+theme(legend.position = c(0.7,0.7))
+CHR.nods <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_nods_sampled, color=Population))+geom_point()+ geom_smooth(method="lm", se=TRUE, color="grey", linetype="dotted")+xlab("Nodules sampled (no.)")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+theme(legend.position = c(0.7,0.7))+  theme(axis.title=element_text(size=x))
 
-SI.nods <- ggplot(data=df, aes(y=`SI genotype frequency`, x=SI_nods_sampled, color=Population)) +geom_smooth(method="lm", se=TRUE, color="black")+geom_point()+xlab("Nodules sampled (no.)")+ylab("SI genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+guides(color=FALSE)
+SI.nods <- ggplot(data=df, aes(y=`SI genotype frequency`, x=SI_nods_sampled, color=Population)) +geom_smooth(method="lm", se=TRUE, color="black")+geom_point()+xlab("Nodules sampled (no.)")+ylab("SI genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+guides(color=FALSE)+  theme(axis.title=element_text(size=x))
 
 fig.nods <- plot_grid(CHR.nods, SI.nods, nrow=2, labels="auto") 
 fig.nods #Show figure
@@ -378,7 +381,7 @@ fig.nods #Show figure
 
 Are multiple nodules on the same plant independent samples of the rhizobia present in a population? Here, I plot the number of unique rhizobia genotypes in nodules from the same plant in the original dataset (black dots and lines) as well as the number of unique rhizobia genotypes in the same number of nodules sampled at random within a population (blue lines show the linear regressions for each of 100 permutations).
 
-```{r }
+```{r nodules independent, message=FALSE, warning=FALSE, dpi=600, fig.width=8, fig.height=8}
 
 #Real data
 real.data <- table_S1.long %>% group_by(Population, locus, Plant_ID) %>% summarize(total_nods_sampled=n(), n_unique_haplotypes = length(unique(haplotype)))
@@ -412,7 +415,8 @@ SI.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "SI_hap
   ylab("Unique SI genotypes (no.)")+xlab("Nodules sampled (no.)")+
   guides(fill=FALSE)+
   #  geom_jitter(data=subset(random.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), shape=1)+
-  geom_point(data=subset(real.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes))
+  geom_point(data=subset(real.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes))+
+    theme(axis.title=element_text(size=x))
 
 
 CHR.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="black")+
@@ -420,11 +424,8 @@ CHR.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "CHR_h
   ylab("Unique CHR genotypes (no.)")+xlab("Nodules sampled (no.)")+
   guides(fill=FALSE)+
   #  geom_jitter(data=subset(random.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), shape=1)+
-  geom_point(data=subset(real.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes))
-
-
-fig.nods.sampling <- plot_grid(CHR.nods.sampling, SI.nods.sampling, labels="auto") 
-fig.nods.sampling
+  geom_point(data=subset(real.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes))+
+  theme(axis.title=element_text(size=x))
 
 #Combine with previous figures to make full figure for paper
 fig1 <- plot_grid(CHR, SI, CHR.accum.curve, SI.accum.curve, CHR.nods.sampling, SI.nods.sampling, nrow=3, ncol=2, labels="auto", scale=0.95)
