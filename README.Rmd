@@ -130,7 +130,7 @@ model2 <- lm(`SI genotype frequency`~SI_plants_sampled, data=df)
 summary(model2) #Significant correlation
 
 #Make figures
-CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_plants_sampled, color=Population))+geom_point()+ geom_smooth(method="lm", se=TRUE, color=1)+xlab("Plants sampled (no.)")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+scale_x_continuous(limits=c(0, 35))+theme(legend.position = c(0.7,0.7))
+CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_plants_sampled, color=Population))+geom_point()+ geom_smooth(method="lm", se=TRUE, color=1)+xlab("Plants sampled (no.)")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+scale_x_continuous(limits=c(0, 35))+theme(legend.position = c(0.7,0.7), legend.text=element_text(size=8), legend.title =element_text(size=8))
 
 SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=SI_plants_sampled, color=Population)) +geom_smooth(method="lm", se=TRUE, color=1)+geom_point()+xlab("Plants sampled (no.)")+ylab("SI genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+scale_x_continuous(limits=c(0, 23))+guides(color=FALSE)
 
@@ -185,10 +185,8 @@ SI.accum.curve <- ggplot(data=SI.accum, aes(x=plants, y=richness, color=Populati
 
 CHR.accum.curve <- ggplot(data=CHR.accum, aes(x=plants, y=richness, color=Population))+geom_point()+geom_line()+geom_errorbar(aes(x=plants, ymin=richness-SD, ymax=richness+SD), alpha=0.5, width=0.1)+xlab("Plants sampled (no.)")+ylab("Unique CHR genotypes (no.)")+scale_x_continuous(limits=c(0, 35))+guides(color=FALSE)
  
-#Combine with previous figures to make full figure for paper
-fig1 <- plot_grid(CHR, SI, CHR.accum.curve, SI.accum.curve, nrow=2, ncol=2, labels="auto")
-fig1
-save_plot("Fig1.png", fig1, base_width=8, base_height=8)
+fig.accum <- plot_grid(CHR.accum.curve, SI.accum.curve, nrow=2, labels="auto")
+fig.accum
 ```
 
 ## How does uneven sampling among sites affect the results?
@@ -378,7 +376,7 @@ fig.nods #Show figure
 
 ## Are nodules independent samples? 
 
-Are multiple nodules on the same plant independent samples of the rhizobia present in a population? 
+Are multiple nodules on the same plant independent samples of the rhizobia present in a population? Here, I plot the number of unique rhizobia genotypes in nodules from the same plant in the original dataset (black dots and lines) as well as the number of unique rhizobia genotypes in the same number of nodules sampled at random within a population (blue lines show the linear regressions for each of 100 permutations).
 
 ```{r }
 
@@ -405,22 +403,31 @@ for(i in 1:6) {
   }
 }
 
+#Summarize randomized data 
 random.data <- random.table_S1 %>% group_by(Population, locus, Plant_ID, permutation) %>% summarize(total_nods_sampled=n(), n_unique_haplotypes = length(unique(haplotype)))
 
-#random.data <- random.data %>% group_by(Population, locus, Plant_ID) %>% summarize(total_nods_sampled=mean(total_nods_sampled), mean_n_unique_haplotypes = mean(n_unique_haplotypes))
-
-SI.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="red")+
+#Make figures
+SI.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="black")+
   geom_smooth(data=subset(random.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes, fill=as.factor(permutation)), method="lm", se=FALSE, size=0.1)+
   ylab("Unique SI genotypes (no.)")+xlab("Nodules sampled (no.)")+
   guides(fill=FALSE)+
+  #  geom_jitter(data=subset(random.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), shape=1)+
   geom_point(data=subset(real.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes))
 
-CHR.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="red")+
+
+CHR.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="black")+
   geom_smooth(data=subset(random.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes, fill=as.factor(permutation)), method="lm", se=FALSE,  size=0.1)+
   ylab("Unique CHR genotypes (no.)")+xlab("Nodules sampled (no.)")+
   guides(fill=FALSE)+
+  #  geom_jitter(data=subset(random.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), shape=1)+
   geom_point(data=subset(real.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes))
+
 
 fig.nods.sampling <- plot_grid(CHR.nods.sampling, SI.nods.sampling, labels="auto") 
 fig.nods.sampling
+
+#Combine with previous figures to make full figure for paper
+fig1 <- plot_grid(CHR, SI, CHR.accum.curve, SI.accum.curve, CHR.nods.sampling, SI.nods.sampling, nrow=3, ncol=2, labels="auto", scale=0.95)
+fig1
+save_plot("Fig1.png", fig1, base_width=8, base_height=8)
 ```

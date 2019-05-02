@@ -1,7 +1,7 @@
 Are rhizobia under selection to cheat?
 ================
 Megan Frederickson
-2019-05-01
+2019-05-02
 
 Is there fitness conflict between legumes and rhizobia?
 -------------------------------------------------------
@@ -165,7 +165,7 @@ summary(model2) #Significant correlation
 
 ``` r
 #Make figures
-CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_plants_sampled, color=Population))+geom_point()+ geom_smooth(method="lm", se=TRUE, color=1)+xlab("Plants sampled (no.)")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+scale_x_continuous(limits=c(0, 35))+theme(legend.position = c(0.7,0.7))
+CHR <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_plants_sampled, color=Population))+geom_point()+ geom_smooth(method="lm", se=TRUE, color=1)+xlab("Plants sampled (no.)")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+scale_x_continuous(limits=c(0, 35))+theme(legend.position = c(0.7,0.7), legend.text=element_text(size=8), legend.title =element_text(size=8))
 
 SI <- ggplot(data=df, aes(y=`SI genotype frequency`, x=SI_plants_sampled, color=Population)) +geom_smooth(method="lm", se=TRUE, color=1)+geom_point()+xlab("Plants sampled (no.)")+ylab("SI genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+scale_x_continuous(limits=c(0, 23))+guides(color=FALSE)
 
@@ -221,16 +221,11 @@ SI.accum.curve <- ggplot(data=SI.accum, aes(x=plants, y=richness, color=Populati
 
 CHR.accum.curve <- ggplot(data=CHR.accum, aes(x=plants, y=richness, color=Population))+geom_point()+geom_line()+geom_errorbar(aes(x=plants, ymin=richness-SD, ymax=richness+SD), alpha=0.5, width=0.1)+xlab("Plants sampled (no.)")+ylab("Unique CHR genotypes (no.)")+scale_x_continuous(limits=c(0, 35))+guides(color=FALSE)
  
-#Combine with previous figures to make full figure for paper
-fig1 <- plot_grid(CHR, SI, CHR.accum.curve, SI.accum.curve, nrow=2, ncol=2, labels="auto")
-fig1
+fig.accum <- plot_grid(CHR.accum.curve, SI.accum.curve, nrow=2, labels="auto")
+fig.accum
 ```
 
 ![](README_files/figure-markdown_github/Rarefaction-1.png)
-
-``` r
-save_plot("Fig1.png", fig1, base_width=8, base_height=8)
-```
 
 How does uneven sampling among sites affect the results?
 --------------------------------------------------------
@@ -538,18 +533,18 @@ summary(model9) #Non-significant
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.14480 -0.06838 -0.03840  0.00813  0.38440 
+    ## -0.14593 -0.07146 -0.03860  0.00511  0.38578 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)   
-    ## (Intercept)      0.3269     0.1164   2.809  0.00972 **
-    ## mean_log10_RGR  -0.2160     0.1295  -1.669  0.10814   
+    ## (Intercept)      0.3293     0.1173   2.808  0.00974 **
+    ## mean_log10_RGR  -0.2179     0.1304  -1.670  0.10784   
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1399 on 24 degrees of freedom
-    ## Multiple R-squared:  0.104,  Adjusted R-squared:  0.06664 
-    ## F-statistic: 2.785 on 1 and 24 DF,  p-value: 0.1081
+    ## Residual standard error: 0.141 on 24 degrees of freedom
+    ## Multiple R-squared:  0.1041, Adjusted R-squared:  0.06682 
+    ## F-statistic:  2.79 on 1 and 24 DF,  p-value: 0.1078
 
 ``` r
 #Fit model for mean SI genotype frequency from re-sampling and RGR
@@ -563,18 +558,18 @@ summary(model10) #Non-significant
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.18483 -0.09245 -0.03852  0.08170  0.26841 
+    ## -0.18867 -0.09930 -0.03312  0.06315  0.26833 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)  
-    ## (Intercept)     0.28332    0.13439   2.108   0.0478 *
-    ## mean_log10_RGR -0.05076    0.14699  -0.345   0.7335  
+    ## (Intercept)     0.29317    0.13529   2.167   0.0425 *
+    ## mean_log10_RGR -0.06033    0.14798  -0.408   0.6878  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1569 on 20 degrees of freedom
-    ## Multiple R-squared:  0.005926,   Adjusted R-squared:  -0.04378 
-    ## F-statistic: 0.1192 on 1 and 20 DF,  p-value: 0.7335
+    ## Residual standard error: 0.158 on 20 degrees of freedom
+    ## Multiple R-squared:  0.008243,   Adjusted R-squared:  -0.04135 
+    ## F-statistic: 0.1662 on 1 and 20 DF,  p-value: 0.6878
 
 ``` r
 #Make figures
@@ -674,7 +669,7 @@ fig.nods #Show figure
 Are nodules independent samples?
 --------------------------------
 
-Are multiple nodules on the same plant independent samples of the rhizobia present in a population?
+Are multiple nodules on the same plant independent samples of the rhizobia present in a population? Here, I plot the number of unique rhizobia genotypes in nodules from the same plant in the original dataset (black dots and lines) as well as the number of unique rhizobia genotypes in the same number of nodules sampled at random within a population (blue lines show the linear regressions for each of 100 permutations).
 
 ``` r
 #Real data
@@ -700,24 +695,49 @@ for(i in 1:6) {
   }
 }
 
+#Summarize randomized data 
 random.data <- random.table_S1 %>% group_by(Population, locus, Plant_ID, permutation) %>% summarize(total_nods_sampled=n(), n_unique_haplotypes = length(unique(haplotype)))
 
-#random.data <- random.data %>% group_by(Population, locus, Plant_ID) %>% summarize(total_nods_sampled=mean(total_nods_sampled), mean_n_unique_haplotypes = mean(n_unique_haplotypes))
-
-SI.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="red")+
+#Make figures
+SI.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="black")+
   geom_smooth(data=subset(random.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes, fill=as.factor(permutation)), method="lm", se=FALSE, size=0.1)+
   ylab("Unique SI genotypes (no.)")+xlab("Nodules sampled (no.)")+
   guides(fill=FALSE)+
+  #  geom_jitter(data=subset(random.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), shape=1)+
   geom_point(data=subset(real.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes))
 
-CHR.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="red")+
+
+CHR.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="black")+
   geom_smooth(data=subset(random.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes, fill=as.factor(permutation)), method="lm", se=FALSE,  size=0.1)+
   ylab("Unique CHR genotypes (no.)")+xlab("Nodules sampled (no.)")+
   guides(fill=FALSE)+
+  #  geom_jitter(data=subset(random.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), shape=1)+
   geom_point(data=subset(real.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes))
+
 
 fig.nods.sampling <- plot_grid(CHR.nods.sampling, SI.nods.sampling, labels="auto") 
 fig.nods.sampling
 ```
 
 ![](README_files/figure-markdown_github/unnamed-chunk-1-1.png)
+
+``` r
+#Combine with previous figures to make full figure for paper
+fig1 <- plot_grid(CHR, SI, CHR.accum.curve, SI.accum.curve, CHR.nods.sampling, SI.nods.sampling, nrow=3, ncol=2, labels="auto", scale=0.95)
+```
+
+    ## Warning: Removed 1 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 1 rows containing missing values (geom_point).
+
+    ## Warning: Removed 1 rows containing missing values (geom_text).
+
+``` r
+fig1
+```
+
+![](README_files/figure-markdown_github/unnamed-chunk-1-2.png)
+
+``` r
+save_plot("Fig1.png", fig1, base_width=8, base_height=8)
+```
