@@ -354,7 +354,8 @@ save_plot("Fig2.png", full.new.Fig5, base_width=8, base_height=8)
 ```
 
 ## Is the number of nodules sampled per population negatively correlated with genotype frequency?
-Yes, for SI genotype frequency. Not significantly so, for CHR genotype frequency.
+
+Above, I used the number of plants sampled as a measure of sampling effort. Multiple nodules were sampled per plant, so could each nodule be considered a sample? First, we need to know whether the number of nodules sampled per population is correlated with genotype frequency. The answer is yes, for SI genotype frequency. There is a significant negative correlation between SI genotype frequency and the number of nodules sampled. But the same is not true for CHR genotype frequency. The direction is still negative, but the correlation between CHR genotype frequency and number of nodules sampled is non-significant. 
 
 ```{r Nodules as samples}
 
@@ -375,15 +376,16 @@ fig.nods <- plot_grid(CHR.nods, SI.nods, nrow=2, labels="auto")
 fig.nods #Show figure
 ```
 
-#Are nodules independent samples? 
+## Are nodules independent samples? 
 
+Are multiple nodules on the same plant independent samples of the rhizobia present in a population? 
 
 ```{r }
 
 #Real data
 real.data <- table_S1.long %>% group_by(Population, locus, Plant_ID) %>% summarize(total_nods_sampled=n(), n_unique_haplotypes = length(unique(haplotype)))
 
-#Randomize plants within population 
+#Randomize plants within each population 
 random.table_S1 <- data.frame(Full_Strain_Name = character(), Plant_ID = character(), Year=integer(), Population=character(), locus=character(), haplotype=character(), permutation=integer(), stringsAsFactors = FALSE)
 
 for(j in 1:100) {
@@ -393,52 +395,32 @@ for(i in 1:6) {
   random$haplotype <- sample(random$haplotype, replace=FALSE)
   random$permutation <- j
   random.table_S1 <- rbind(random.table_S1, random)
-}
+  }
 
 for(i in 1:6) {
   random <- table_S1.long[which(table_S1.long$locus == "CHR_haplotype" & table_S1.long$Population == pop[i]), ] 
   random$haplotype <- sample(random$haplotype, replace=FALSE)
   random$permutation <- j
   random.table_S1 <- rbind(random.table_S1, random)
-  
-}
-
+  }
 }
 
 random.data <- random.table_S1 %>% group_by(Population, locus, Plant_ID, permutation) %>% summarize(total_nods_sampled=n(), n_unique_haplotypes = length(unique(haplotype)))
 
-random.data <- random.data %>% group_by(Population, locus, Plant_ID) %>% summarize(total_nods_sampled=mean(total_nods_sampled), mean_n_unique_haplotypes = mean(n_unique_haplotypes))
+#random.data <- random.data %>% group_by(Population, locus, Plant_ID) %>% summarize(total_nods_sampled=mean(total_nods_sampled), mean_n_unique_haplotypes = mean(n_unique_haplotypes))
 
-plot <- ggplot()+
-        geom_point(data=real.data, aes(x=total_nods_sampled, y=n_unique_haplotypes))+
-        geom_smooth(data=real.data, aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="red")+
-        geom_smooth(data=random.data, aes(x=total_nods_sampled, y=mean_n_unique_haplotypes), method="lm", color="blue")+
-        facet_wrap(~locus)
-plot
+SI.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="red")+
+  geom_smooth(data=subset(random.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes, fill=as.factor(permutation)), method="lm", se=FALSE, size=0.1)+
+  ylab("Unique SI genotypes (no.)")+xlab("Nodules sampled (no.)")+
+  guides(fill=FALSE)+
+  geom_point(data=subset(real.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes))
 
-```
+CHR.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="red")+
+  geom_smooth(data=subset(random.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes, fill=as.factor(permutation)), method="lm", se=FALSE,  size=0.1)+
+  ylab("Unique CHR genotypes (no.)")+xlab("Nodules sampled (no.)")+
+  guides(fill=FALSE)+
+  geom_point(data=subset(real.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes))
 
-## Are nodules independent within plants?
-
-I re-calculated haplotype frequencies within each plant, and compare them to haplotype frequencies in the population in general. 
-
-```{r Are nodules independent in plants?}
-
-library(diptest) #For testing modality in distributions
-
-#Calculate frequency of each genotype within each plant
-per_plant <- table_S1.long %>% group_by(Population, locus, Plant_ID) %>% summarize(total_plant_nodules=n())
-per_haplotype <- table_S1.long %>% group_by(Population, locus, Plant_ID, haplotype) %>% summarize(nodules=n())
-df.SI.freq <- merge(subset(per_plant, locus == "SI_haplotype"), subset(per_haplotype, locus=="SI_haplotype"), by="Plant_ID")
-df.SI.freq <- df.SI.freq[ , c(2,1,7,8,4)]
-colnames(df.SI.freq) <- c("Population", "Plant_ID", "SI_haplotype", "Nodules", "Total_plant_nodules")
-df.CHR.freq <- merge(subset(per_plant, locus == "CHR_haplotype"), subset(per_haplotype, locus=="CHR_haplotype"), by="Plant_ID")
-df.CHR.freq <- df.CHR.freq[ , c(2,1,7,8,4)]
-colnames(df.CHR.freq) <- c("Population", "Plant_ID", "CHR_haplotype", "Nodules", "Total_plant_nodules")
-df.SI.freq$Per_plant_frequency <- df.SI.freq$Nodules/df.SI.freq$Total_plant_nodules
-df.CHR.freq$Per_plant_frequency <- df.CHR.freq$Nodules/df.CHR.freq$Total_plant_nodules
-
-dip.test(df.SI.freq$Per_plant_frequency) #Significantly non-unimodal
-dip.test(df.CHR.freq$Per_plant_frequency) #Significantly non-uni-modal
-
+fig.nods.sampling <- plot_grid(CHR.nods.sampling, SI.nods.sampling, labels="auto") 
+fig.nods.sampling
 ```

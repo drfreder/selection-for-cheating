@@ -1,7 +1,7 @@
 Are rhizobia under selection to cheat?
 ================
 Megan Frederickson
-2019-04-30
+2019-05-01
 
 Is there fitness conflict between legumes and rhizobia?
 -------------------------------------------------------
@@ -538,18 +538,18 @@ summary(model9) #Non-significant
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.14423 -0.06916 -0.04308  0.00907  0.38774 
+    ## -0.14480 -0.06838 -0.03840  0.00813  0.38440 
     ## 
     ## Coefficients:
-    ##                Estimate Std. Error t value Pr(>|t|)  
-    ## (Intercept)      0.3205     0.1167   2.746   0.0113 *
-    ## mean_log10_RGR  -0.2070     0.1298  -1.594   0.1239  
+    ##                Estimate Std. Error t value Pr(>|t|)   
+    ## (Intercept)      0.3269     0.1164   2.809  0.00972 **
+    ## mean_log10_RGR  -0.2160     0.1295  -1.669  0.10814   
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1403 on 24 degrees of freedom
-    ## Multiple R-squared:  0.09579,    Adjusted R-squared:  0.05811 
-    ## F-statistic: 2.542 on 1 and 24 DF,  p-value: 0.1239
+    ## Residual standard error: 0.1399 on 24 degrees of freedom
+    ## Multiple R-squared:  0.104,  Adjusted R-squared:  0.06664 
+    ## F-statistic: 2.785 on 1 and 24 DF,  p-value: 0.1081
 
 ``` r
 #Fit model for mean SI genotype frequency from re-sampling and RGR
@@ -563,18 +563,18 @@ summary(model10) #Non-significant
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.18979 -0.10120 -0.02837  0.05239  0.26899 
+    ## -0.18483 -0.09245 -0.03852  0.08170  0.26841 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)  
-    ## (Intercept)     0.29713    0.13645   2.178   0.0416 *
-    ## mean_log10_RGR -0.06487    0.14925  -0.435   0.6685  
+    ## (Intercept)     0.28332    0.13439   2.108   0.0478 *
+    ## mean_log10_RGR -0.05076    0.14699  -0.345   0.7335  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1593 on 20 degrees of freedom
-    ## Multiple R-squared:  0.009358,   Adjusted R-squared:  -0.04017 
-    ## F-statistic: 0.1889 on 1 and 20 DF,  p-value: 0.6685
+    ## Residual standard error: 0.1569 on 20 degrees of freedom
+    ## Multiple R-squared:  0.005926,   Adjusted R-squared:  -0.04378 
+    ## F-statistic: 0.1192 on 1 and 20 DF,  p-value: 0.7335
 
 ``` r
 #Make figures
@@ -597,7 +597,7 @@ save_plot("Fig2.png", full.new.Fig5, base_width=8, base_height=8)
 Is the number of nodules sampled per population negatively correlated with genotype frequency?
 ----------------------------------------------------------------------------------------------
 
-Yes, for SI genotype frequency. Not significantly so, for CHR genotype frequency.
+Above, I used the number of plants sampled as a measure of sampling effort. Multiple nodules were sampled per plant, so could each nodule be considered a sample? First, we need to know whether the number of nodules sampled per population is correlated with genotype frequency. The answer is yes, for SI genotype frequency. There is a significant negative correlation between SI genotype frequency and the number of nodules sampled. But the same is not true for CHR genotype frequency. The direction is still negative, but the correlation between CHR genotype frequency and number of nodules sampled is non-significant.
 
 ``` r
 #Model relationship between SI frequency and number of nodules sampled
@@ -672,13 +672,15 @@ fig.nods #Show figure
 ![](README_files/figure-markdown_github/Nodules%20as%20samples-1.png)
 
 Are nodules independent samples?
-================================
+--------------------------------
+
+Are multiple nodules on the same plant independent samples of the rhizobia present in a population?
 
 ``` r
 #Real data
 real.data <- table_S1.long %>% group_by(Population, locus, Plant_ID) %>% summarize(total_nods_sampled=n(), n_unique_haplotypes = length(unique(haplotype)))
 
-#Randomize plants within population 
+#Randomize plants within each population 
 random.table_S1 <- data.frame(Full_Strain_Name = character(), Plant_ID = character(), Year=integer(), Population=character(), locus=character(), haplotype=character(), permutation=integer(), stringsAsFactors = FALSE)
 
 for(j in 1:100) {
@@ -688,69 +690,34 @@ for(i in 1:6) {
   random$haplotype <- sample(random$haplotype, replace=FALSE)
   random$permutation <- j
   random.table_S1 <- rbind(random.table_S1, random)
-}
+  }
 
 for(i in 1:6) {
   random <- table_S1.long[which(table_S1.long$locus == "CHR_haplotype" & table_S1.long$Population == pop[i]), ] 
   random$haplotype <- sample(random$haplotype, replace=FALSE)
   random$permutation <- j
   random.table_S1 <- rbind(random.table_S1, random)
-  
-}
-
+  }
 }
 
 random.data <- random.table_S1 %>% group_by(Population, locus, Plant_ID, permutation) %>% summarize(total_nods_sampled=n(), n_unique_haplotypes = length(unique(haplotype)))
 
-random.data <- random.data %>% group_by(Population, locus, Plant_ID) %>% summarize(total_nods_sampled=mean(total_nods_sampled), mean_n_unique_haplotypes = mean(n_unique_haplotypes))
+#random.data <- random.data %>% group_by(Population, locus, Plant_ID) %>% summarize(total_nods_sampled=mean(total_nods_sampled), mean_n_unique_haplotypes = mean(n_unique_haplotypes))
 
-plot <- ggplot()+
-        geom_point(data=real.data, aes(x=total_nods_sampled, y=n_unique_haplotypes))+
-        geom_smooth(data=real.data, aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="red")+
-        geom_smooth(data=random.data, aes(x=total_nods_sampled, y=mean_n_unique_haplotypes), method="lm", color="blue")+
-        facet_wrap(~locus)
-plot
+SI.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="red")+
+  geom_smooth(data=subset(random.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes, fill=as.factor(permutation)), method="lm", se=FALSE, size=0.1)+
+  ylab("Unique SI genotypes (no.)")+xlab("Nodules sampled (no.)")+
+  guides(fill=FALSE)+
+  geom_point(data=subset(real.data, locus == "SI_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes))
+
+CHR.nods.sampling <- ggplot()+geom_smooth(data=subset(real.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes), method="lm", color="red")+
+  geom_smooth(data=subset(random.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes, fill=as.factor(permutation)), method="lm", se=FALSE,  size=0.1)+
+  ylab("Unique CHR genotypes (no.)")+xlab("Nodules sampled (no.)")+
+  guides(fill=FALSE)+
+  geom_point(data=subset(real.data, locus == "CHR_haplotype"), aes(x=total_nods_sampled, y=n_unique_haplotypes))
+
+fig.nods.sampling <- plot_grid(CHR.nods.sampling, SI.nods.sampling, labels="auto") 
+fig.nods.sampling
 ```
 
 ![](README_files/figure-markdown_github/unnamed-chunk-1-1.png)
-
-Are nodules independent within plants?
---------------------------------------
-
-I re-calculated haplotype frequencies within each plant, and compare them to haplotype frequencies in the population in general.
-
-``` r
-library(diptest) #For testing modality in distributions
-
-#Calculate frequency of each genotype within each plant
-per_plant <- table_S1.long %>% group_by(Population, locus, Plant_ID) %>% summarize(total_plant_nodules=n())
-per_haplotype <- table_S1.long %>% group_by(Population, locus, Plant_ID, haplotype) %>% summarize(nodules=n())
-df.SI.freq <- merge(subset(per_plant, locus == "SI_haplotype"), subset(per_haplotype, locus=="SI_haplotype"), by="Plant_ID")
-df.SI.freq <- df.SI.freq[ , c(2,1,7,8,4)]
-colnames(df.SI.freq) <- c("Population", "Plant_ID", "SI_haplotype", "Nodules", "Total_plant_nodules")
-df.CHR.freq <- merge(subset(per_plant, locus == "CHR_haplotype"), subset(per_haplotype, locus=="CHR_haplotype"), by="Plant_ID")
-df.CHR.freq <- df.CHR.freq[ , c(2,1,7,8,4)]
-colnames(df.CHR.freq) <- c("Population", "Plant_ID", "CHR_haplotype", "Nodules", "Total_plant_nodules")
-df.SI.freq$Per_plant_frequency <- df.SI.freq$Nodules/df.SI.freq$Total_plant_nodules
-df.CHR.freq$Per_plant_frequency <- df.CHR.freq$Nodules/df.CHR.freq$Total_plant_nodules
-
-dip.test(df.SI.freq$Per_plant_frequency) #Significantly non-unimodal
-```
-
-    ## 
-    ##  Hartigans' dip test for unimodality / multimodality
-    ## 
-    ## data:  df.SI.freq$Per_plant_frequency
-    ## D = 0.059603, p-value = 0.0003859
-    ## alternative hypothesis: non-unimodal, i.e., at least bimodal
-
-``` r
-dip.test(df.CHR.freq$Per_plant_frequency) #Significantly non-uni-modal
-```
-
-    ## 
-    ##  Hartigans' dip test for unimodality / multimodality
-    ## 
-    ## data:  df.CHR.freq$Per_plant_frequency
-    ## D = 0.09949, p-value < 2.2e-16
-    ## alternative hypothesis: non-unimodal, i.e., at least bimodal
