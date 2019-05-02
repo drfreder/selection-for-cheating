@@ -368,13 +368,6 @@ summary(model11) #Significant correlation
 model12 <- lm(`CHR genotype frequency`~CHR_nods_sampled, data=df)
 summary(model12) #Non-significant correlation
 
-#Make figure
-CHR.nods <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_nods_sampled, color=Population))+geom_point()+ geom_smooth(method="lm", se=TRUE, color="grey", linetype="dotted")+xlab("Nodules sampled (no.)")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+theme(legend.position = c(0.7,0.7))+  theme(axis.title=element_text(size=x))
-
-SI.nods <- ggplot(data=df, aes(y=`SI genotype frequency`, x=SI_nods_sampled, color=Population)) +geom_smooth(method="lm", se=TRUE, color="black")+geom_point()+xlab("Nodules sampled (no.)")+ylab("SI genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+guides(color=FALSE)+  theme(axis.title=element_text(size=x))
-
-fig.nods <- plot_grid(CHR.nods, SI.nods, nrow=2, labels="auto") 
-fig.nods #Show figure
 ```
 
 ## Are nodules independent samples? 

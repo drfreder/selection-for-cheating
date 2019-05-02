@@ -536,18 +536,18 @@ summary(model9) #Non-significant
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.14572 -0.06900 -0.03904  0.00569  0.38962 
+    ## -0.14519 -0.07127 -0.03981  0.00741  0.38691 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)  
-    ## (Intercept)      0.3272     0.1171   2.793   0.0101 *
-    ## mean_log10_RGR  -0.2162     0.1303  -1.659   0.1100  
+    ## (Intercept)      0.3261     0.1174   2.778   0.0105 *
+    ## mean_log10_RGR  -0.2129     0.1306  -1.631   0.1160  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1408 on 24 degrees of freedom
-    ## Multiple R-squared:  0.1029, Adjusted R-squared:  0.06555 
-    ## F-statistic: 2.754 on 1 and 24 DF,  p-value: 0.11
+    ## Residual standard error: 0.1411 on 24 degrees of freedom
+    ## Multiple R-squared:  0.09974,    Adjusted R-squared:  0.06223 
+    ## F-statistic: 2.659 on 1 and 24 DF,  p-value: 0.116
 
 ``` r
 #Fit model for mean SI genotype frequency from re-sampling and RGR
@@ -561,18 +561,18 @@ summary(model10) #Non-significant
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.18624 -0.09443 -0.03630  0.06844  0.27518 
+    ## -0.18559 -0.10009 -0.04612  0.10213  0.27027 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)  
-    ## (Intercept)      0.2978     0.1311   2.271   0.0343 *
-    ## mean_log10_RGR  -0.0716     0.1434  -0.499   0.6230  
+    ## (Intercept)     0.28827    0.13529   2.131   0.0457 *
+    ## mean_log10_RGR -0.05743    0.14798  -0.388   0.7020  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1531 on 20 degrees of freedom
-    ## Multiple R-squared:  0.01231,    Adjusted R-squared:  -0.03707 
-    ## F-statistic: 0.2493 on 1 and 20 DF,  p-value: 0.623
+    ## Residual standard error: 0.158 on 20 degrees of freedom
+    ## Multiple R-squared:  0.007476,   Adjusted R-squared:  -0.04215 
+    ## F-statistic: 0.1506 on 1 and 20 DF,  p-value: 0.702
 
 ``` r
 #Make figures
@@ -647,18 +647,6 @@ summary(model12) #Non-significant correlation
     ## Residual standard error: 0.1505 on 24 degrees of freedom
     ## Multiple R-squared:  0.07515,    Adjusted R-squared:  0.03661 
     ## F-statistic:  1.95 on 1 and 24 DF,  p-value: 0.1754
-
-``` r
-#Make figure
-CHR.nods <- ggplot(data=df, aes(y=`CHR genotype frequency`, x=CHR_nods_sampled, color=Population))+geom_point()+ geom_smooth(method="lm", se=TRUE, color="grey", linetype="dotted")+xlab("Nodules sampled (no.)")+ylab("CHR genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+theme(legend.position = c(0.7,0.7))+  theme(axis.title=element_text(size=x))
-
-SI.nods <- ggplot(data=df, aes(y=`SI genotype frequency`, x=SI_nods_sampled, color=Population)) +geom_smooth(method="lm", se=TRUE, color="black")+geom_point()+xlab("Nodules sampled (no.)")+ylab("SI genotype frequency")+geom_text(aes(label=Strain),hjust=0, vjust=0, size=2.5, nudge_x = 0.05, check_overlap=TRUE)+guides(color=FALSE)+  theme(axis.title=element_text(size=x))
-
-fig.nods <- plot_grid(CHR.nods, SI.nods, nrow=2, labels="auto") 
-fig.nods #Show figure
-```
-
-![](README_files/figure-markdown_github/Nodules%20as%20samples-1.png)
 
 Are nodules independent samples?
 --------------------------------
