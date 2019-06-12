@@ -10,19 +10,17 @@ I downloaded their data from Dryad on April 16, 2019. The citation for the data 
 What about sub-sampling nodules, instead of plants?
 ---------------------------------------------------
 
-In my technical comment, I down-sampled the data by choosing 2 or 4 plants at random from each population, iterating 100 times per population, and calculating mean genotype frequencies. What happens if, instead, I down-sampled by the smallest number of nodules sampled in any given population (39 for CHR frequencies, or 4 for SI frequencies)?
-
-Here is what I get if I choose 39 nodules at random 1000 times from each population:
+In my technical comment, I down-sampled the data by repeatedly choosing 2 or 4 plants at random from each population. What happens if, instead, I re-sample by the smallest number of nodules sampled in any population? I first re-sample to 39 nodules, as in the response to my technical comment:
 
 ``` r
 min <- 39 #Minimum number of nods sampled 
 pop <- c("UCR", "CLA", "GRI", "BMR", "YUC", "ANZ") #Create vector of population names
 df.nods <- data.frame(Population=character(), haplotype = character(), locus=character(), n=double(), tot_n=double(), freq=double(), stringsAsFactors=FALSE) #Initialize empty frame to store all the sub-sampled data in
 
-#Two for loops that loop through 100 iterations for each population
+#Two for loops that loop through 10000 iterations for each population
 for (i in 1:6) {
   tmp.pop <- pop[i]
-for (j in 1:100) {
+for (j in 1:10000) {
   tmp <- subset(table_S1, Population == tmp.pop)
   tmp.nods <- sample(unique(tmp$Full_Strain_Name), min, replace = FALSE)
   tmp.data <- subset(tmp, tmp$Full_Strain_Name %in% tmp.nods)
@@ -65,18 +63,18 @@ summary(model1)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.14036 -0.07995 -0.04212  0.01062  0.41087 
+    ## -0.14016 -0.07988 -0.04139  0.01049  0.41599 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)   
-    ## (Intercept)      0.3360     0.1167   2.880  0.00824 **
-    ## mean_log10_RGR  -0.2711     0.1298  -2.089  0.04748 * 
+    ## (Intercept)      0.3354     0.1173   2.859  0.00865 **
+    ## mean_log10_RGR  -0.2705     0.1305  -2.073  0.04909 * 
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1402 on 24 degrees of freedom
-    ## Multiple R-squared:  0.1539, Adjusted R-squared:  0.1186 
-    ## F-statistic: 4.364 on 1 and 24 DF,  p-value: 0.04748
+    ## Residual standard error: 0.141 on 24 degrees of freedom
+    ## Multiple R-squared:  0.1518, Adjusted R-squared:  0.1165 
+    ## F-statistic: 4.297 on 1 and 24 DF,  p-value: 0.04909
 
 ``` r
 #Fit model for mean SI genotype frequency from re-sampling and RGR
@@ -90,29 +88,29 @@ summary(model2)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.15050 -0.10551 -0.03290  0.03176  0.31547 
+    ## -0.14792 -0.10080 -0.03078  0.03620  0.28413 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)  
-    ## (Intercept)      0.3392     0.1246   2.723   0.0131 *
-    ## mean_log10_RGR  -0.1946     0.1362  -1.429   0.1685  
+    ## (Intercept)      0.3387     0.1193   2.839   0.0101 *
+    ## mean_log10_RGR  -0.1980     0.1305  -1.517   0.1449  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1454 on 20 degrees of freedom
-    ## Multiple R-squared:  0.09261,    Adjusted R-squared:  0.04724 
-    ## F-statistic: 2.041 on 1 and 20 DF,  p-value: 0.1685
+    ## Residual standard error: 0.1393 on 20 degrees of freedom
+    ## Multiple R-squared:  0.1032, Adjusted R-squared:  0.05834 
+    ## F-statistic: 2.301 on 1 and 20 DF,  p-value: 0.1449
 
-Here is what I get if I choose 4 nodules at random 100 times from each population:
+Here is what I get if I choose 4 nodules at random 10000 times from each population:
 
 ``` r
 min <- 4 #Minimum number of nods sampled 
 df.nods <- data.frame(Population=character(), haplotype = character(), locus=character(), n=double(), tot_n=double(), freq=double(), stringsAsFactors=FALSE) #Initialize empty frame to store all the sub-sampled data in
 
-#Two for loops that loop through 100 iterations for each population
+#Two for loops that loop through 10000 iterations for each population
 for (i in 1:6) {
   tmp.pop <- pop[i]
-for (j in 1:100) {
+for (j in 1:10000) {
   tmp <- subset(table_S1, Population == tmp.pop)
   tmp.nods <- sample(unique(tmp$Full_Strain_Name), min, replace = FALSE)
   tmp.data <- subset(tmp, tmp$Full_Strain_Name %in% tmp.nods)
@@ -152,19 +150,19 @@ summary(model3)
     ## lm(formula = mean_CHR_freq ~ mean_log10_RGR, data = CHR.sum)
     ## 
     ## Residuals:
-    ##      Min       1Q   Median       3Q      Max 
-    ## -0.08521 -0.04653 -0.01962  0.01696  0.27275 
+    ##       Min        1Q    Median        3Q       Max 
+    ## -0.080383 -0.045908 -0.022372  0.007118  0.271173 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)     0.45023    0.07039   6.396  1.3e-06 ***
-    ## mean_log10_RGR -0.18344    0.07830  -2.343   0.0278 *  
+    ## (Intercept)     0.43098    0.07173   6.009 3.34e-06 ***
+    ## mean_log10_RGR -0.16043    0.07979  -2.011   0.0557 .  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.08463 on 24 degrees of freedom
-    ## Multiple R-squared:  0.1861, Adjusted R-squared:  0.1522 
-    ## F-statistic: 5.488 on 1 and 24 DF,  p-value: 0.02777
+    ## Residual standard error: 0.08623 on 24 degrees of freedom
+    ## Multiple R-squared:  0.1442, Adjusted R-squared:  0.1085 
+    ## F-statistic: 4.043 on 1 and 24 DF,  p-value: 0.05572
 
 ``` r
 #Fit model for mean SI genotype frequency from re-sampling and RGR
@@ -178,15 +176,15 @@ summary(model4)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.26128 -0.14504 -0.08692  0.09016  0.58375 
+    ## -0.26639 -0.14653 -0.07187  0.10033  0.50931 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)      0.9036     0.2158   4.187 0.000454 ***
-    ## mean_log10_RGR  -0.4781     0.2360  -2.025 0.056369 .  
+    ## (Intercept)      0.8652     0.2036   4.249 0.000393 ***
+    ## mean_log10_RGR  -0.4298     0.2227  -1.930 0.067965 .  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.2519 on 20 degrees of freedom
-    ## Multiple R-squared:  0.1702, Adjusted R-squared:  0.1287 
-    ## F-statistic: 4.103 on 1 and 20 DF,  p-value: 0.05637
+    ## Residual standard error: 0.2377 on 20 degrees of freedom
+    ## Multiple R-squared:  0.1569, Adjusted R-squared:  0.1148 
+    ## F-statistic: 3.723 on 1 and 20 DF,  p-value: 0.06797
