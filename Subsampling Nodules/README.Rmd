@@ -1,0 +1,203 @@
+---
+title: "Are rhizobia under selection to cheat?"
+author: "Megan Frederickson"
+date: "`r format(Sys.Date())`"
+output: github_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This code expands on my re-analyzis of the data in: Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Interspecific conflict and the evolution of ineffective rhizobia. Ecology Letters. https://doi.org/10.1111/ele.13247
+
+```{r Load packages, message=FALSE, warning=FALSE, include=FALSE}
+
+library(tidyverse) #includes ggplot2, dplyr, readr, stringr
+library(knitr)
+library(cowplot)
+library(car)
+library(glmm)
+library(nlme)
+library(lme4)
+library(emmeans)
+
+```
+
+I downloaded their data from Dryad on April 16, 2019. The citation for the data package is: Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Data from: Interspecific conflict and the evolution of ineffective rhizobia. Dryad Digital Repository. https://doi.org/10.5061/dryad.cr65269
+
+```{r Read in data, message=FALSE, warning=FALSE, include=FALSE}
+
+table_S4 <- read_csv("Table_S4.csv", col_types = cols(Strain = col_factor(levels = c("132", "133", "134", "135", "136", "137", "138", "139", "140", "141", "142", "143", "144", "145", "146", "147", "148", "149", "150", "151", "152", "153", "154", "155", "156", "157", "158", "159", "160", "161", "control")), `Host Line` = col_factor(levels = c("BMR01.03", "BMR07.03", "UnH: Cla12.04", "UnL: Anz13.04", "A. heermannii", "Gri01.01", "Gri01.13", "Cla10.01", "Cla01.04", "UCR02.07", "UCR09.05", "Yuc02.07", "Yuc02.01", "Anz11.01", "Anz10.01")), Block = col_factor(levels = c("1", "2", "3", "4", "5")), `CHR local abundance` = col_number(), `Mean individual  nodule biomass (mg)` = col_number(), `Mineral N (ppm)` = col_number(), `Plant #` = col_number(), Population = col_factor(levels = c("ANZ",  "BMR", "CLA", "GRI", "UCR", "YUC")), `Relative Growth` = col_number(), `Roots mass (g)` = col_number(), `Shoots mass (g)` = col_number(), `Total N (%)` = col_number(), `Total nodules` = col_number()))
+  
+table_S1 <- read_csv("Table_S1.csv", col_names = c("Full_Strain_Name", "Year", "Population", "glnII_Haplotype", "recA_Haplotype", "nodZ_Haplotype",  "nolL_Haplotype"), col_types = cols(Year = col_number(), Population = col_factor(levels = c("ANZ",  "BMR", "CLA", "GRI", "UCR", "YUC"))), skip = 1)
+
+table_S2 <- read_csv("Table_S2.csv", col_names = c("Strain", "Full_Strain_Name", "Population", "Latitude", "Longitude", "glnII_Haplotype", "glnII_Accession", "recA_Haplotype", "recA_Accession", "nodZ_Haplotype", "nodZ_Accession", "nolL_Haplotype", "nolL_Accession", "CHR_Haplotype", "CHR genotype frequency" , "SI_haplotye", "SI genotype frequency"), col_types = cols(Strain = col_factor(levels = c("132", "133", "134", "135", "136", "137", "138", "139", "140", "141", "142", "143", "144", "145", "146", "147", "148", "149", "150", "151", "152", "153", "154", "155", "156", "157", "158", "159", "160", "161")), `CHR genotype frequency` = col_number(), `SI genotype frequency` = col_number(), Population = col_factor(levels = c("Bodega Marine Reserve", "Griffith Park", "Robert J. Bernard Biological Field Station", "University of California Riverside", "Burns Pinon Ridge Reserve", "Anza Borrego Desert State Park"))), skip = 2)
+
+```
+
+```{r Wrangle data, message=FALSE, warning=FALSE, include=FALSE}
+
+#There is an issue with the "Relative Growth" column in the Dryad version of Table S4
+#Values are hundreds or thousands, but inoculated plants did not grow 100-1000x more than controls
+#In fact, the x-axis of Figure 5 in the original paper shows values from ~0.5-1.2 on a log scale
+#So real values should be on the order of ~1-100x
+#As a result, I recalculated Relative Growth Rate (RGR) from scratch
+#I followed the methods described in the original paper, attempting to match the original analysis
+table_S4$pop_block <- paste0(table_S4$Block, table_S4$`Host Line`) #Make a unique identifier for each block-host line combination
+table_S4$Plant_biomass <- table_S4$`Shoots mass (g)`+table_S4$`Roots mass (g)` #Sum root and shoot mass
+tmp <- subset(table_S4, Strain == "control") #Subset control plants only
+table_S4 <- merge(table_S4, tmp[, c(1, 17, 18)], by="pop_block") #Match inoculated plants to controls based on which block and host line they were
+
+#The footnotes for Table 1 in the original paper says when controls were substituted, so I follow suit here
+table_S4[table_S4$`Plant #.y` == 111, 20] <- table_S4[table_S4$`Plant #.y` == 106, 20] #Sub 106 for 111
+table_S4[table_S4$`Plant #.y` == 222, 20] <- table_S4[table_S4$`Plant #.y` == 216, 20] #Sub 216 for 222
+table_S4[table_S4$`Plant #.y` == 669, 20] <- mean(c(unique(table_S4[table_S4$`Plant #.y` == 651, 20]), unique(table_S4[table_S4$`Plant #.y` == 660, 20]), unique(table_S4[table_S4$`Plant #.y` == 663, 20]), unique(table_S4[table_S4$`Plant #.y` == 680, 20]), unique(table_S4[table_S4$`Plant #.y` == 684, 20]))) #Sub mean of 651, 660, 663, 680, and 684 for 669
+
+table_S4 <- subset(table_S4, `Shoots mass (g)` != "DEAD") #Exclude dead plants, as per paper
+table_S4 <- subset(table_S4, Strain != "control") #Exclude uninoculated controls, as per paper
+table_S4 <- subset(table_S4, `Total nodules` > 0) #Exclude inoculated plants that formed no nodules, as per paper
+table_S4$RGR <- table_S4$Plant_biomass.x/table_S4$Plant_biomass.y #Re-calculate RGR (values look better)
+table_S4$logRGR <- log10(table_S4$RGR) #Log-transform RGR, as per paper
+
+table_S1$SI_haplotype <- paste0(table_S1$nodZ_Haplotype, "_", table_S1$nolL_Haplotype) #Concatenate SI haplotypes, as per paper
+table_S1$CHR_haplotype <- paste0(table_S1$glnII_Haplotype, "_", table_S1$recA_Haplotype) #Concatenate CHR haplotypes, as per paper
+
+table_S2$Population <- ifelse(table_S2$Population == "Bodega Marine Reserve", "BMR", ifelse(table_S2$Population == "Griffith Park", "GRI", ifelse(table_S2$Population == "Robert J. Bernard Biological Field Station", "CLA", ifelse(table_S2$Population == "University of California Riverside", "UCR", ifelse(table_S2$Population == "Anza Borrego Desert State Park", "ANZ", "YUC"))))) #Abbreviate Table_S2 population names, to make them match across data tables
+
+table_S1$Plant_ID <- gsub('R.*', "", (toupper(gsub('_.*', "", table_S1$Full_Strain_Name)))) #Make a column of unique plant ids
+
+table_S1 <- table_S1[,c(1, 10, 2:9)] #Reorder columns
+table_S1.long <- gather(table_S1, locus, haplotype, glnII_Haplotype:CHR_haplotype, factor_key=TRUE) #Make wide data into long format
+table_S1.long <- subset(subset(table_S1.long, haplotype != "n/an/a"), haplotype != "n/a_n/a")  #Remove NAs
+table_S1.long <- subset(table_S1.long, locus == "SI_haplotype" | locus == "CHR_haplotype") #Subset to just CHR and SI haplotypes
+
+#Calculate nodules and plants sampled per population
+new.table <- table_S1.long %>% group_by(Population, locus) %>% summarize(total_nods_sampled=n(), total_plants_sampled=length(unique(Plant_ID))) #Summarize data by locus and population
+new.table.long <- merge(subset(new.table, locus == "SI_haplotype"), subset(new.table, locus == "CHR_haplotype"), by="Population") #Make wide data long
+new.table.long <- new.table.long[, c(1,3,4,6,7)]
+colnames(new.table.long) <- c("Population", "SI_nods_sampled", "SI_plants_sampled", "CHR_nods_sampled", "CHR_plants_sampled")
+
+#Merge number of nodules and plants sampled with Table S2 data
+table_S2 <- merge(table_S2, new.table.long, by="Population", all.x = TRUE) #Add sampling effort to Table 2
+
+#Calculate strain means in Table S4
+#These should really be predicted from a linear mixed model using something like the emmeans package
+#But the original paper says they just used raw averages, so I do so here too
+#Also, because the paper calculated strain means just on sympatric host lines, I do the same here
+data_sym <- subset(table_S4, `Host Line` != "A. heermannii" & `Host Line` != "UnH: Cla12.04" & `Host Line` != "UnL: Anz13.04")
+new.table2 <- data_sym %>% group_by(Population, Strain) %>% summarize(mean_RGR = mean(`Relative Growth`, na.rm=TRUE), mean_total_nodules = mean(`Total nodules`, na.rm=TRUE), mean_nodule_mass = mean(`Mean individual  nodule biomass (mg)`, na.rm=TRUE), mean_log10_RGR = mean(logRGR, na.rm=TRUE)) #Calculate means
+
+#Merge data in Tables S2 and S4 into a single data frame
+df <- merge(table_S2, new.table2[ ,2:6], by="Strain") 
+
+#For later, set font size for text in figure axis labels
+x=12
+
+```
+
+## What about sub-sampling nodules, instead of plants?
+
+In my technical comment, I down-sampled the data by choosing 2 or 4 plants at random from each population, iterating 100 times per population, and calculating mean genotype frequencies. What happens if, instead, I down-sampled by the smallest number of nodules sampled in any given population (39 for CHR frequencies, or 4 for SI frequencies)?
+
+Here is what I get if I choose 39 nodules at random 1000 times from each population:
+
+```{r Sample 39 nodules}
+
+min <- 39 #Minimum number of nods sampled 
+pop <- c("UCR", "CLA", "GRI", "BMR", "YUC", "ANZ") #Create vector of population names
+df.nods <- data.frame(Population=character(), haplotype = character(), locus=character(), n=double(), tot_n=double(), freq=double(), stringsAsFactors=FALSE) #Initialize empty frame to store all the sub-sampled data in
+
+#Two for loops that loop through 100 iterations for each population
+for (i in 1:6) {
+  tmp.pop <- pop[i]
+for (j in 1:100) {
+  tmp <- subset(table_S1, Population == tmp.pop)
+  tmp.nods <- sample(unique(tmp$Full_Strain_Name), min, replace = FALSE)
+  tmp.data <- subset(tmp, tmp$Full_Strain_Name %in% tmp.nods)
+  tmp.data.long <- gather(tmp.data, locus, haplotype, glnII_Haplotype:CHR_haplotype, factor_key=TRUE)
+  tmp.data.long <- subset(tmp.data.long, locus == "CHR_haplotype" | locus == "SI_haplotype")
+  tmp.data.long <- subset(subset(tmp.data.long, haplotype != "n/an/a"), haplotype != "n/a_n/a")
+  tmp2 <- tmp.data.long %>% group_by(Population, haplotype, locus) %>% summarize(n=n())
+  n_SI <- length(subset(tmp.data.long, locus == "SI_haplotype")[[1]])
+  n_CHR <- length(subset(tmp.data.long, locus == "CHR_haplotype")[[1]])
+  tmp2$tot_n <- ifelse(tmp2$locus == "CHR_haplotype", n_CHR, n_SI)
+  tmp2$freq <- tmp2$n/tmp2$tot_n
+  df.nods<-rbind(df.nods, as.data.frame(tmp2))
+  }
+}
+
+#Merge re-sampled and original data by haplotype and population
+df$popCHR <- paste0(df$Population, df$CHR_Haplotype)
+df$popSI <- paste0(df$Population, df$SI_haplotye)
+df.nods$pophaplotype <- paste0(df.nods$Population, df.nods$haplotype)
+df.nods.CHR <- merge(df.nods, df, by.x="pophaplotype", by.y="popCHR")
+df.nods.SI <- merge(df.nods, df, by.x="pophaplotype", by.y="popSI")
+
+#Calculate mean genotype frequencies per strain from 100 iterations
+CHR.sum <- df.nods.CHR %>% group_by(Population.x, haplotype) %>% summarize(n=n(), mean_CHR_freq=mean(freq, na.rm=TRUE), sd=sd(freq, na.rm=TRUE), se=sd/sqrt(n))
+CHR.sum$popCHR <- paste0(CHR.sum$Population.x, CHR.sum$haplotype)
+CHR.sum <- merge(CHR.sum, df, by="popCHR")
+
+SI.sum <- df.nods.SI %>% group_by(Population.x, haplotype) %>% summarize(n=n(), mean_SI_freq=mean(freq, na.rm=TRUE), sd=sd(freq, na.rm=TRUE), se=sd/sqrt(n))
+SI.sum$popSI <- paste0(SI.sum$Population.x, SI.sum$haplotype)
+SI.sum <- merge(SI.sum, df, by="popSI")
+
+#Fit model for mean CHR genotype frequency from re-sampling and RGR
+model1 <- lm(mean_CHR_freq~mean_log10_RGR, data=CHR.sum)
+summary(model1) 
+
+#Fit model for mean SI genotype frequency from re-sampling and RGR
+model2 <- lm(mean_SI_freq~mean_log10_RGR, data=SI.sum)
+summary(model2) 
+```
+
+Here is what I get if I choose 4 nodules at random 100 times from each population:
+
+```{r Sample 4 nodules}
+
+min <- 4 #Minimum number of nods sampled 
+df.nods <- data.frame(Population=character(), haplotype = character(), locus=character(), n=double(), tot_n=double(), freq=double(), stringsAsFactors=FALSE) #Initialize empty frame to store all the sub-sampled data in
+
+#Two for loops that loop through 100 iterations for each population
+for (i in 1:6) {
+  tmp.pop <- pop[i]
+for (j in 1:100) {
+  tmp <- subset(table_S1, Population == tmp.pop)
+  tmp.nods <- sample(unique(tmp$Full_Strain_Name), min, replace = FALSE)
+  tmp.data <- subset(tmp, tmp$Full_Strain_Name %in% tmp.nods)
+  tmp.data.long <- gather(tmp.data, locus, haplotype, glnII_Haplotype:CHR_haplotype, factor_key=TRUE)
+  tmp.data.long <- subset(tmp.data.long, locus == "CHR_haplotype" | locus == "SI_haplotype")
+  tmp.data.long <- subset(subset(tmp.data.long, haplotype != "n/an/a"), haplotype != "n/a_n/a")
+  tmp2 <- tmp.data.long %>% group_by(Population, haplotype, locus) %>% summarize(n=n())
+  n_SI <- length(subset(tmp.data.long, locus == "SI_haplotype")[[1]])
+  n_CHR <- length(subset(tmp.data.long, locus == "CHR_haplotype")[[1]])
+  tmp2$tot_n <- ifelse(tmp2$locus == "CHR_haplotype", n_CHR, n_SI)
+  tmp2$freq <- tmp2$n/tmp2$tot_n
+  df.nods<-rbind(df.nods, as.data.frame(tmp2))
+  }
+}
+
+#Merge re-sampled and original data by haplotype and population
+df.nods$pophaplotype <- paste0(df.nods$Population, df.nods$haplotype)
+df.nods.CHR <- merge(df.nods, df, by.x="pophaplotype", by.y="popCHR")
+df.nods.SI <- merge(df.nods, df, by.x="pophaplotype", by.y="popSI")
+
+#Calculate mean genotype frequencies per strain from 100 iterations
+CHR.sum <- df.nods.CHR %>% group_by(Population.x, haplotype) %>% summarize(n=n(), mean_CHR_freq=mean(freq, na.rm=TRUE), sd=sd(freq, na.rm=TRUE), se=sd/sqrt(n))
+CHR.sum$popCHR <- paste0(CHR.sum$Population.x, CHR.sum$haplotype)
+CHR.sum <- merge(CHR.sum, df, by="popCHR")
+
+SI.sum <- df.nods.SI %>% group_by(Population.x, haplotype) %>% summarize(n=n(), mean_SI_freq=mean(freq, na.rm=TRUE), sd=sd(freq, na.rm=TRUE), se=sd/sqrt(n))
+SI.sum$popSI <- paste0(SI.sum$Population.x, SI.sum$haplotype)
+SI.sum <- merge(SI.sum, df, by="popSI")
+
+#Fit model for mean CHR genotype frequency from re-sampling and RGR
+model3 <- lm(mean_CHR_freq~mean_log10_RGR, data=CHR.sum)
+summary(model3) 
+
+#Fit model for mean SI genotype frequency from re-sampling and RGR
+model4 <- lm(mean_SI_freq~mean_log10_RGR, data=SI.sum)
+summary(model4) 
