@@ -63,18 +63,18 @@ summary(model1)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.14028 -0.08000 -0.04167  0.01038  0.41471 
+    ## -0.14000 -0.07966 -0.04126  0.01080  0.41466 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)   
-    ## (Intercept)      0.3355     0.1172   2.863  0.00857 **
-    ## mean_log10_RGR  -0.2705     0.1304  -2.075  0.04887 * 
+    ## (Intercept)      0.3354     0.1171   2.864  0.00855 **
+    ## mean_log10_RGR  -0.2708     0.1303  -2.079  0.04852 * 
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1409 on 24 degrees of freedom
-    ## Multiple R-squared:  0.1521, Adjusted R-squared:  0.1168 
-    ## F-statistic: 4.306 on 1 and 24 DF,  p-value: 0.04887
+    ## Residual standard error: 0.1408 on 24 degrees of freedom
+    ## Multiple R-squared:  0.1526, Adjusted R-squared:  0.1172 
+    ## F-statistic: 4.321 on 1 and 24 DF,  p-value: 0.04852
 
 ``` r
 #Fit model for mean SI genotype frequency from re-sampling and RGR
@@ -88,20 +88,20 @@ summary(model2)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.14846 -0.10107 -0.03100  0.03552  0.29173 
+    ## -0.14844 -0.10065 -0.03115  0.03542  0.28467 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)  
-    ## (Intercept)      0.3392     0.1203   2.820   0.0106 *
-    ## mean_log10_RGR  -0.1978     0.1316  -1.504   0.1483  
+    ## (Intercept)      0.3397     0.1199   2.832   0.0103 *
+    ## mean_log10_RGR  -0.1986     0.1312  -1.514   0.1456  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1404 on 20 degrees of freedom
-    ## Multiple R-squared:  0.1016, Adjusted R-squared:  0.05666 
-    ## F-statistic: 2.261 on 1 and 20 DF,  p-value: 0.1483
+    ## Residual standard error: 0.14 on 20 degrees of freedom
+    ## Multiple R-squared:  0.1029, Adjusted R-squared:  0.058 
+    ## F-statistic: 2.293 on 1 and 20 DF,  p-value: 0.1456
 
-Here is what I get if instead I choose 4 nodules at random 5000 times from each population.
+Here is what I get if instead I choose 4 nodules at random 1000 times from each population.
 
 ``` r
 min <- 4 #Minimum number of nods sampled 
@@ -140,7 +140,7 @@ SI.sum$popSI <- paste0(SI.sum$Population.x, SI.sum$haplotype)
 SI.sum <- merge(SI.sum, df, by="popSI")
 ```
 
-The output shows non-significant relationships between rhizobium fitness and symbiotic effectiveness regardless of locus.
+The output shows non-significant relationships between rhizobium fitness and symbiotic effectiveness regardless of locus, although both models have p-values just above 0.05.
 
 ``` r
 #Fit model for mean CHR genotype frequency from re-sampling and RGR
@@ -154,18 +154,18 @@ summary(model3)
     ## 
     ## Residuals:
     ##       Min        1Q    Median        3Q       Max 
-    ## -0.081165 -0.046378 -0.022959  0.006756  0.284777 
+    ## -0.078720 -0.044730 -0.021659  0.005899  0.279624 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)      0.4327     0.0739   5.855 4.87e-06 ***
-    ## mean_log10_RGR  -0.1619     0.0822  -1.969   0.0606 .  
+    ## (Intercept)     0.42790    0.07284   5.875 4.64e-06 ***
+    ## mean_log10_RGR -0.15817    0.08102  -1.952   0.0627 .  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.08884 on 24 degrees of freedom
-    ## Multiple R-squared:  0.1391, Adjusted R-squared:  0.1033 
-    ## F-statistic: 3.878 on 1 and 24 DF,  p-value: 0.06056
+    ## Residual standard error: 0.08757 on 24 degrees of freedom
+    ## Multiple R-squared:  0.137,  Adjusted R-squared:  0.1011 
+    ## F-statistic: 3.811 on 1 and 24 DF,  p-value: 0.06266
 
 ``` r
 #Fit model for mean SI genotype frequency from re-sampling and RGR
@@ -179,15 +179,15 @@ summary(model4)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.27441 -0.14310 -0.06634  0.10033  0.47543 
+    ## -0.25628 -0.14708 -0.07405  0.08640  0.49747 
     ## 
     ## Coefficients:
     ##                Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)      0.8805     0.2010   4.381 0.000289 ***
-    ## mean_log10_RGR  -0.4457     0.2198  -2.027 0.056155 .  
+    ## (Intercept)      0.8285     0.2034   4.074 0.000592 ***
+    ## mean_log10_RGR  -0.3964     0.2224  -1.782 0.089897 .  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.2346 on 20 degrees of freedom
-    ## Multiple R-squared:  0.1705, Adjusted R-squared:  0.129 
-    ## F-statistic:  4.11 on 1 and 20 DF,  p-value: 0.05616
+    ## Residual standard error: 0.2374 on 20 degrees of freedom
+    ## Multiple R-squared:  0.1371, Adjusted R-squared:  0.09391 
+    ## F-statistic: 3.176 on 1 and 20 DF,  p-value: 0.0899

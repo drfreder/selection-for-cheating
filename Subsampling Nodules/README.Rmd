@@ -154,7 +154,7 @@ model2 <- lm(mean_SI_freq~mean_log10_RGR, data=SI.sum)
 summary(model2) 
 ```
 
-Here is what I get if instead I choose 4 nodules at random 5000 times from each population. 
+Here is what I get if instead I choose 4 nodules at random 1000 times from each population. 
 
 ```{r Sample 4 nodules}
 
@@ -195,7 +195,7 @@ SI.sum <- merge(SI.sum, df, by="popSI")
 
 ```
 
-The output shows non-significant relationships between rhizobium fitness and symbiotic effectiveness regardless of locus. 
+The output shows non-significant relationships between rhizobium fitness and symbiotic effectiveness regardless of locus, although both models have p-values just above 0.05. 
 
 ```{r models v2}
 
