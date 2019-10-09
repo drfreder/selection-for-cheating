@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Response to Sachs and Torres Martinez
 ================
 Megan Frederickson
@@ -450,3 +451,6 @@ p5
 ```
 
 ![](README_files/figure-markdown_github/unnamed-chunk-1-27.png)
+=======
+
+>>>>>>> 057a2128031a5089327a7fb63a5dff8a3b06064e
