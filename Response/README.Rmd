@@ -1,5 +1,5 @@
 ---
-title: "Response to Sachs and Torres Martinez"
+title: "Response to Sachs and Torres-Martinez"
 author: "Megan Frederickson"
 date: "`r format(Sys.Date())`"
 output: github_document
@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 This repository re-analyzes the data in: Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Interspecific conflict and the evolution of ineffective rhizobia. Ecology Letters. https://doi.org/10.1111/ele.13247
 
-Here, the question is whether the genotype frequencies of rhizobia in different populations is correlated with sampling effort.
+Here, the question is whether the genotype frequencies of rhizobia in different populations are correlated with sampling effort.
 
 ```{r Load packages, message=FALSE, warning=FALSE, include=FALSE}
 
@@ -175,7 +175,7 @@ df.SI$Focal <-trimws(as.character(df.SI$haplolist)) %in% trimws(as.character(df$
 
 #Re-analyse the full genotype frequency dataset
 
-```{r}
+```{r, message=FALSE, warning=FALSE, dpi=600}
 
 #Genotype frequency distributions
 hist(df.SI$Freq) #Highly non-normal
@@ -215,18 +215,14 @@ plot(lmSI.plants.v3)
 subset.CHR <- subset(df.CHR, haplolist == "G11_R07" | haplolist == "G03_R01")
 
 p1 <- ggplot(data=subset.CHR, aes(x=CHR_plants_sampled, y=Freq))+geom_point(aes(color=Population))+geom_smooth(method="lm", se=FALSE)+theme_bw()+theme(panel.grid=element_blank())+scale_color_manual(values=c("#B79F00", "#00BA38", "#00BFC4", "#619CFF", "#F564E3"))+ylab("CHR genotype frequency")+xlab("Plants sampled (no.)")+facet_wrap(~haplolist, scales="free")
-p1
 
 p2 <- ggplot(data=subset.CHR, aes(x=CHR_nods_sampled, y=Freq))+geom_point(aes(color=Population))+geom_smooth(method="lm", se=FALSE)+theme_bw()+theme(panel.grid=element_blank())+scale_color_manual(values=c("#B79F00", "#00BA38", "#00BFC4", "#619CFF", "#F564E3"))+ylab("CHR genotype frequency")+xlab("Nodules sampled (no.)")+facet_wrap(~haplolist, scales="free")
-p2
 
 #Subset to SI haplotype Z02_L04
 subset.SI <- subset(df.SI, haplolist == "Z02_L04")
 p3 <- ggplot(data=subset.SI, aes(x=SI_plants_sampled, y=Freq))+geom_point(aes(color=Population))+geom_smooth(method="lm", se=FALSE)+theme_bw()+theme(panel.grid=element_blank())+guides(color=FALSE)+scale_color_manual(values=c("#B79F00", "#00BA38", "#619CFF", "#F564E3"))+ylab("SI genotype frequency")+xlab("Plants sampled (no.)")+facet_wrap(~haplolist, scales="free")
-p3
 
 p4 <- ggplot(data=subset.SI, aes(x=SI_nods_sampled, y=Freq))+geom_point(aes(color=Population))+geom_smooth(method="lm", se=FALSE)+theme_bw()+theme(panel.grid=element_blank())+scale_color_manual(values=c("#B79F00", "#00BA38", "#619CFF", "#F564E3"))+ylab("SI genotype frequency")+guides(color=FALSE)+ylab("SI genotype frequency")+xlab("Nodules sampled (no.)")+facet_wrap(~haplolist, scales="free")
-p4
 
 p5 <- plot_grid(p1, p3, p2, p4, rel_widths = c(2.2, 1))
 p5

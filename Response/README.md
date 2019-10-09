@@ -1,4 +1,4 @@
-Response to Sachs and Torres Martinez
+Response to Sachs and Torres-Martinez
 ================
 Megan Frederickson
 2019-10-09
@@ -8,7 +8,7 @@ Is rhizobium fitness correlated with sampling effort?
 
 This repository re-analyzes the data in: Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Interspecific conflict and the evolution of ineffective rhizobia. Ecology Letters. <https://doi.org/10.1111/ele.13247>
 
-Here, the question is whether the genotype frequencies of rhizobia in different populations is correlated with sampling effort.
+Here, the question is whether the genotype frequencies of rhizobia in different populations are correlated with sampling effort.
 
 I downloaded their data from Dryad on April 16, 2019. The citation for the data package is: Gano-Cohen KA, Wendlandt CE, Stokes PJ, Blanton MA, Quides KW, Zomorrodian A, Adinata ES, Sachs JL (2019) Data from: Interspecific conflict and the evolution of ineffective rhizobia. Dryad Digital Repository. <https://doi.org/10.5061/dryad.cr65269>
 
@@ -416,37 +416,17 @@ plot(lmSI.plants.v3)
 subset.CHR <- subset(df.CHR, haplolist == "G11_R07" | haplolist == "G03_R01")
 
 p1 <- ggplot(data=subset.CHR, aes(x=CHR_plants_sampled, y=Freq))+geom_point(aes(color=Population))+geom_smooth(method="lm", se=FALSE)+theme_bw()+theme(panel.grid=element_blank())+scale_color_manual(values=c("#B79F00", "#00BA38", "#00BFC4", "#619CFF", "#F564E3"))+ylab("CHR genotype frequency")+xlab("Plants sampled (no.)")+facet_wrap(~haplolist, scales="free")
-p1
-```
 
-![](README_files/figure-markdown_github/unnamed-chunk-1-23.png)
-
-``` r
 p2 <- ggplot(data=subset.CHR, aes(x=CHR_nods_sampled, y=Freq))+geom_point(aes(color=Population))+geom_smooth(method="lm", se=FALSE)+theme_bw()+theme(panel.grid=element_blank())+scale_color_manual(values=c("#B79F00", "#00BA38", "#00BFC4", "#619CFF", "#F564E3"))+ylab("CHR genotype frequency")+xlab("Nodules sampled (no.)")+facet_wrap(~haplolist, scales="free")
-p2
-```
 
-![](README_files/figure-markdown_github/unnamed-chunk-1-24.png)
-
-``` r
 #Subset to SI haplotype Z02_L04
 subset.SI <- subset(df.SI, haplolist == "Z02_L04")
 p3 <- ggplot(data=subset.SI, aes(x=SI_plants_sampled, y=Freq))+geom_point(aes(color=Population))+geom_smooth(method="lm", se=FALSE)+theme_bw()+theme(panel.grid=element_blank())+guides(color=FALSE)+scale_color_manual(values=c("#B79F00", "#00BA38", "#619CFF", "#F564E3"))+ylab("SI genotype frequency")+xlab("Plants sampled (no.)")+facet_wrap(~haplolist, scales="free")
-p3
-```
 
-![](README_files/figure-markdown_github/unnamed-chunk-1-25.png)
-
-``` r
 p4 <- ggplot(data=subset.SI, aes(x=SI_nods_sampled, y=Freq))+geom_point(aes(color=Population))+geom_smooth(method="lm", se=FALSE)+theme_bw()+theme(panel.grid=element_blank())+scale_color_manual(values=c("#B79F00", "#00BA38", "#619CFF", "#F564E3"))+ylab("SI genotype frequency")+guides(color=FALSE)+ylab("SI genotype frequency")+xlab("Nodules sampled (no.)")+facet_wrap(~haplolist, scales="free")
-p4
-```
 
-![](README_files/figure-markdown_github/unnamed-chunk-1-26.png)
-
-``` r
 p5 <- plot_grid(p1, p3, p2, p4, rel_widths = c(2.2, 1))
 p5
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-1-27.png)
+![](README_files/figure-markdown_github/unnamed-chunk-1-23.png)
